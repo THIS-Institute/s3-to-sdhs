@@ -21,6 +21,13 @@ Resources:
         Variables:
           SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
       MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Events:
+        incoming:
+          Type: S3
+          Properties:
+            Bucket: !Ref EnvConfiginterviewsbucketnameAsString
+            Events:
+              - s3:ObjectCreated:*
 Parameters:
   StackTagName:
     Type: String
@@ -34,7 +41,11 @@ Parameters:
   EnvConfiglambdatimeoutAsString:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /<EnvironmentName>/lambda/timeout
+  EnvConfiginterviewsbucketnameAsString:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /<EnvironmentName>/buckets/interviews
 Metadata:
   EnvConfigParameters:
     EnvConfiglambdamemorysizeAsString: lambda.memory-size
     EnvConfiglambdatimeoutAsString: lambda.timeout
+    EnvConfiginterviewsbucketnameAsString: buckets.interviews
