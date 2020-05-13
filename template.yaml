@@ -21,6 +21,13 @@ Resources:
         Variables:
           SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
       MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Events:
+        Timer:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 hour)
+          Metadata:
+            StackeryName: TransferFilesTimer
 Parameters:
   StackTagName:
     Type: String
