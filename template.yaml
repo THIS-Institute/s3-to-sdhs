@@ -15,6 +15,7 @@ Resources:
       Tracing: Active
       Policies:
         - AWSXrayWriteOnlyAccess
+        - AmazonS3ReadOnlyAccess
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
       Environment:
