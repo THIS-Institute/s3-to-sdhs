@@ -11,7 +11,7 @@ Resources:
       CodeUri: src
       Handler: transfer_process.transfer_files
       Runtime: python3.7
-      Timeout: !Ref EnvConfiglambdatimeoutAsString
+      Timeout: 900
       Tracing: Active
       Policies:
         - AWSXrayWriteOnlyAccess
@@ -39,10 +39,6 @@ Parameters:
   EnvConfiglambdamemorysizeAsString:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /<EnvironmentName>/lambda/memory-size
-  EnvConfiglambdatimeoutAsString:
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /<EnvironmentName>/lambda/timeout
 Metadata:
   EnvConfigParameters:
     EnvConfiglambdamemorysizeAsString: lambda.memory-size
-    EnvConfiglambdatimeoutAsString: lambda.timeout
