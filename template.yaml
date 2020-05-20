@@ -23,12 +23,48 @@ Resources:
           SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
       MemorySize: !Ref EnvConfiglambdamemorysizeAsString
       Events:
+        Archives:
+          Type: S3
+          Properties:
+            Bucket: !Ref Archives
+            Events:
+              - s3:ObjectCreated:*
+              - s3:ObjectRemoved:*
+  ArchiveFiles:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ArchiveFiles
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: ArchiveFiles
+      CodeUri: src
+      Handler: transfer_process.archive_files
+      Runtime: python3.7
+      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Timeout: 60
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - S3CrudPolicy:
+            BucketName: !Ref Archives
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref Archives
+          BUCKET_ARN: !GetAtt Archives.Arn
+          SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
+      Events:
         Timer:
           Type: Schedule
           Properties:
             Schedule: rate(1 minute)
           Metadata:
-            StackeryName: TransferFilesTimer
+            StackeryName: ArchiveFilesTimer
+  Archives:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-archives-${AWS::AccountId}
 Parameters:
   StackTagName:
     Type: String
