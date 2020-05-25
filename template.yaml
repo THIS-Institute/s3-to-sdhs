@@ -46,6 +46,7 @@ Resources:
           KeyType: HASH
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
+      TableName: !Sub ${AWS::StackName}-FileTransferStatus
   MonitorIncomingBucket:
     Type: AWS::Serverless::Function
     Properties:
