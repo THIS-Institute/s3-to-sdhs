@@ -62,6 +62,7 @@ Resources:
       Tracing: Active
       Policies:
         - AWSXrayWriteOnlyAccess
+        - AmazonS3ReadOnlyAccess
         - S3CrudPolicy:
             BucketName: !Ref Archives
         - AWSSecretsManagerGetSecretValuePolicy:
