@@ -30,18 +30,34 @@ Resources:
             Events:
               - s3:ObjectCreated:*
               - s3:ObjectRemoved:*
-  ArchiveFiles:
+  Archives:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-archives-${AWS::AccountId}
+  FileTransferStatus:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+  MonitorIncomingBucket:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-ArchiveFiles
+      FunctionName: !Sub ${AWS::StackName}-MonitorIncomingBucket
       Description: !Sub
         - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
-        - ResourceName: ArchiveFiles
+        - ResourceName: MonitorIncomingBucket
       CodeUri: src
-      Handler: transfer_process.archive_files
+      Handler: process_management.monitor_incoming_bucket
       Runtime: python3.7
       MemorySize: !Ref EnvConfiglambdamemorysizeAsString
-      Timeout: 60
+      Timeout: !Ref EnvConfiglambdatimeoutAsString
       Tracing: Active
       Policies:
         - AWSXrayWriteOnlyAccess
@@ -65,22 +81,6 @@ Resources:
             Schedule: rate(1 minute)
           Metadata:
             StackeryName: MonitorIncomingBucketTimer
-  Archives:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub ${AWS::StackName}-archives-${AWS::AccountId}
-  FileTransferStatus:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      AttributeDefinitions:
-        - AttributeName: id
-          AttributeType: S
-      BillingMode: PAY_PER_REQUEST
-      KeySchema:
-        - AttributeName: id
-          KeyType: HASH
-      StreamSpecification:
-        StreamViewType: NEW_AND_OLD_IMAGES
 Parameters:
   StackTagName:
     Type: String
@@ -91,6 +91,10 @@ Parameters:
   EnvConfiglambdamemorysizeAsString:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /<EnvironmentName>/lambda/memory-size
+  EnvConfiglambdatimeoutAsString:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /<EnvironmentName>/lambda/timeout
 Metadata:
   EnvConfigParameters:
     EnvConfiglambdamemorysizeAsString: lambda.memory-size
+    EnvConfiglambdatimeoutAsString: lambda.timeout
