@@ -16,9 +16,6 @@
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
 import os
-import paramiko
-import pysftp
-from base64 import decodebytes
 from http import HTTPStatus
 
 import common.utilities as utils
@@ -44,6 +41,7 @@ def monitor_incoming_bucket(event, context):
             'interview_id': interview_dir,
             'processing_status': 'new',
         }
+        del f['LastModified']
         try:
             logger.debug('Adding item to FileTransferStatus table', extra={'item': item})
             result = ddb_client.put_item(
@@ -55,6 +53,5 @@ def monitor_incoming_bucket(event, context):
                 correlation_id=correlation_id
             )
             assert result['ResponseMetadata']['HTTPStatusCode'] == HTTPStatus.OK, f"put_item operation failed with response: {result}"
-            return result
-        except NotImplementedError:
-            print('Adding this here as a placeholder for the real error for now')
+        except utils.DetailedValueError:
+            logger.debug('Key already exists in DynamoDb table', extra={'key': s3_path})

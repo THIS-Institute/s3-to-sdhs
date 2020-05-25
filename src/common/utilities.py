@@ -16,7 +16,7 @@
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 
 import boto3
-# import datetime
+import datetime
 import epsagon
 import functools
 import json
@@ -29,7 +29,7 @@ import uuid
 # import validators
 #
 from botocore.exceptions import ClientError
-# from dateutil import parser, tz
+from dateutil import parser, tz
 from http import HTTPStatus
 from pythonjsonlogger import jsonlogger
 # from timeit import default_timer as timer
@@ -164,10 +164,10 @@ def running_on_aws():
     except:
         region = None
     return region is not None
-#
-#
-# def now_with_tz():
-#     return datetime.datetime.now(tz.tzlocal())
+
+
+def now_with_tz():
+    return datetime.datetime.now(tz.tzlocal())
 #
 #
 # def get_start_time():
