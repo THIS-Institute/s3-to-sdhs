@@ -42,6 +42,66 @@ from common.s3_utilities import S3Client
 #     return m.hexdigest()
 
 
+class Interview:
+
+    def __init__(self, root_dir):
+        self.root_dir = root_dir
+        self.audio_files = list()
+        self.video_files = list()
+
+
+@utils.lambda_wrapper
+def archive_files(event, context):
+    logger = event['logger']
+    s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
+
+    s3_client = S3Client()
+    s3_files = s3_client.list_objects(s3_bucket_name)['Contents']
+
+    interviews = dict()
+
+    for f in s3_files:
+        logger.debug('Working with s3 object', extra={'f': f})
+        s3_path = f['Key']
+        # s3_etag = f['ETag']
+        s3_size = f['Size']
+        s3_dirs, s3_filename = os.path.split(s3_path)
+        interview_root_dir = s3_dirs.split('/')[0]
+        interview = interviews.get(interview_root_dir)
+        if interview is None:
+            interviews[interview_root_dir]
+
+
+
+        logger.debug('Path of s3_obj', extra={'s3_dirs': s3_dirs, 's3_filename': s3_filename})
+        sftp.makedirs(s3_dirs)
+        if s3_dirs:
+            with sftp.cd(s3_dirs):
+                copy_file = False
+                if s3_filename not in sftp.listdir():
+                    copy_file = True
+                else:
+                    if sftp.sftp_client.stat(s3_filename).st_size == s3_size:
+                        logger.debug('File already exists in SDHS. Skipped', extra={'s3_path': s3_path,
+                                                                                    'file_attributes': sftp.sftp_client.stat(s3_filename),
+                                                                                    's3_size': s3_size})
+                        skipped_files.append(s3_path)
+                    else:
+                        logger.debug('Size difference detected. Copying file again.', extra={'s3_path': s3_path,
+                                                                                             'file_attributes': sftp.sftp_client.stat(s3_filename),
+                                                                                             's3_size': s3_size})
+                        copy_file = True
+                if copy_file:
+                    with sftp.sftp_client.open(s3_filename, 'wb') as sdhs_f:
+                        s3_client.download_fileobj(s3_bucket_name, s3_path, sdhs_f)
+                    transferred_files.append(s3_path)
+
+    logger.info(f'Operation complete: {len(transferred_files)} files were transferred; {len(skipped_files)} were skipped', extra={
+        'transferred_files': transferred_files,
+        'skipped_files': skipped_files,
+    })
+
+
 @utils.lambda_wrapper
 def transfer_files(event, context):
     logger = event['logger']
