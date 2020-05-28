@@ -90,7 +90,7 @@ def transfer_files(event, context):
                                                                                                     'file_attributes': sftp.sftp_client.stat(s3_filename),
                                                                                         's3_size': s3_size})
                             copy_file = True
-                    if copy_file:
+                    if copy_file and s3_filename:
                         with sftp.sftp_client.open(s3_filename, 'wb') as sdhs_f:
                             s3_client.download_fileobj(s3_bucket_name, s3_path, sdhs_f)
                         transferred_files.append(s3_path)
