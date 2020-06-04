@@ -86,9 +86,10 @@ def transfer_files(event, context):
                                                                                         's3_size': s3_size})
                             skipped_files.append(s3_path)
                         else:
-                            logger.debug('Size difference detected. Copying file again.', extra={'s3_path': s3_path,
-                                                                                                    'file_attributes': sftp.sftp_client.stat(s3_filename),
-                                                                                        's3_size': s3_size})
+                            logger.debug('Size difference detected. Copying file again.',
+                                         extra={'s3_path': s3_path,
+                                                'file_attributes': sftp.sftp_client.stat(s3_filename),
+                                                's3_size': s3_size})
                             copy_file = True
                     if copy_file and s3_filename:
                         with sftp.sftp_client.open(s3_filename, 'wb') as sdhs_f:
