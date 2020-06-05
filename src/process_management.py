@@ -24,7 +24,7 @@ from common.dynamodb_utilities import Dynamodb
 from common.s3_utilities import S3Client
 
 
-class ProcessManager:
+class IncomingMonitor:
     status_table = 'FileTransferStatus'
 
     def __init__(self, logger, correlation_id=None):
@@ -34,48 +34,12 @@ class ProcessManager:
         self.s3_client = S3Client()
         self.known_files = None
 
-    # def scan_bucket(self, bucket_name, filter_in={'ContentType': 'video/mp4'}):
-    #     """
-    #     Args:
-    #         bucket_name:
-    #         filter_in: dictionary of attributes names and values to be checked in s3_object header (metadata);
-    #                    objects matching any of the set filters will be returned (OR match)
-    #                    set this to None if no filter is to be applied
-    #
-    #     Returns:
-    #         Dict of key, metadata pairs for s3 objects of interest
-    #     """
-    #     metadata_dict = dict()
-    #     objs = self.s3_client.list_objects(bucket_name)['Contents']
-    #     for o in objs:
-    #         o_key = o['Key']
-    #         add_to_dict = False
-    #         head = self.s3_client.head_object(bucket_name, o_key)
-    #
-    #         try:
-    #             for k, v in filter_in.items():
-    #                 if head[k] == v:
-    #                     add_to_dict = True
-    #         except AttributeError:
-    #             # no filter applied
-    #             add_to_dict = True
-    #
-    #         if add_to_dict:
-    #             metadata_dict[o_key] = head
-    #
-    #     return metadata_dict
-
     def parse_s3_path(self, s3_path):
         s3_dirs, s3_filename = os.path.split(s3_path)
         interview_dir, file_type = s3_dirs.split('/')
         return s3_filename, interview_dir, file_type
 
-    def process_known_file(self, s3_path, head):
-        s3_filename, interview_dir, file_type = self.parse_s3_path(s3_path)
-        item = self.ddb_client.get_item(self.status_table, s3_path, self.correlation_id)
-        pprint(item)
-
-    def process_new_file(self, s3_path, head):
+    def add_new_file_to_status_table(self, s3_path, head):
         s3_filename, interview_dir, file_type = self.parse_s3_path(s3_path)
         item = {
             'original_filename': s3_filename,
@@ -125,18 +89,15 @@ class ProcessManager:
                 # no filter applied
                 process_file = True
 
-            if process_file:
-                if s3_path in self.known_files:
-                    self.process_known_files(s3_path, head)
-                else:
-                    self.process_new_file(s3_path, head)
+            if process_file and s3_path not in self.known_files:
+                self.add_new_file_to_status_table(s3_path, head)
 
 
 @utils.lambda_wrapper
 def monitor_incoming_bucket(event, context):
     logger = event['logger']
     correlation_id = event['correlation_id']
-    process_manager = ProcessManager(logger=logger, correlation_id=correlation_id)
+    process_manager = IncomingMonitor(logger=logger, correlation_id=correlation_id)
     process_manager.main()
 
 
