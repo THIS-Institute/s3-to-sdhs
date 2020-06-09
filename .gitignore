@@ -143,3 +143,9 @@ dmypy.json
 /api/local/scratchpad.py
 
 /tests/unit_tests/test_message.mime
+
+# latex/tex files
+*.aux
+*.out
+*.synctex.gz
+

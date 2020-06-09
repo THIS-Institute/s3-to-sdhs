@@ -24,8 +24,10 @@ from common.dynamodb_utilities import Dynamodb
 from common.s3_utilities import S3Client
 
 
+STATUS_TABLE = 'FileTransferStatus'
+
+
 class IncomingMonitor:
-    status_table = 'FileTransferStatus'
 
     def __init__(self, logger, correlation_id=None):
         self.logger = logger
@@ -41,6 +43,9 @@ class IncomingMonitor:
 
     def add_new_file_to_status_table(self, s3_path, head):
         s3_filename, interview_dir, file_type = self.parse_s3_path(s3_path)
+        metadata = head['Metadata']
+        email = metadata['email']
+        thiscovery_user_id = utils.aws_get('v1/user', )
         item = {
             'original_filename': s3_filename,
             'original_path': s3_path,
@@ -51,7 +56,7 @@ class IncomingMonitor:
         try:
             self.logger.debug('Adding item to FileTransferStatus table', extra={'item': item})
             result = self.ddb_client.put_item(
-                table_name=self.status_table,
+                table_name=STATUS_TABLE,
                 key=s3_path,
                 item_type=file_type,
                 item_details=head,
@@ -73,7 +78,7 @@ class IncomingMonitor:
 
         Returns:
         """
-        self.known_files = [x['id'] for x in self.ddb_client.scan(self.status_table)]
+        self.known_files = [x['id'] for x in self.ddb_client.scan(STATUS_TABLE)]
         s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
         objs = self.s3_client.list_objects(s3_bucket_name)['Contents']
         for o in objs:
@@ -93,12 +98,58 @@ class IncomingMonitor:
                 self.add_new_file_to_status_table(s3_path, head)
 
 
+class ProcessingManager:
+
+    def __init__(self, logger, correlation_id=None):
+        self.logger = logger
+        self.correlation_id = correlation_id
+        self.ddb_client = Dynamodb()
+
+    def main(self):
+        pass
+        # notifications = get_notifications(NotificationAttributes.STATUS.value, [NotificationStatus.NEW.value, NotificationStatus.RETRYING.value])
+        #
+        # logger.info('process_notifications', extra={'count': str(len(notifications))})
+        #
+        # # note that we need to process all registrations first, then do task signups (otherwise we might try to process a signup for someone not yet registered)
+        # signup_notifications = []
+        # login_notifications = []
+        # for notification in notifications:
+        #     notification_type = notification['type']
+        #     if notification_type == NotificationType.USER_REGISTRATION.value:
+        #         process_user_registration(notification)
+        #     elif notification_type == NotificationType.TASK_SIGNUP.value:
+        #         # add to list for later processing
+        #         signup_notifications.append(notification)
+        #     elif notification_type == NotificationType.USER_LOGIN.value:
+        #         # add to list for later processing
+        #         login_notifications.append(notification)
+        #     else:
+        #         error_message = f'Processing of {notification_type} notifications not implemented yet'
+        #         logger.error(error_message)
+        #         raise NotImplementedError(error_message)
+        #
+        # for signup_notification in signup_notifications:
+        #     process_task_signup(signup_notification)
+        #
+        # for login_notification in login_notifications:
+        #     process_user_login(login_notification)
+
+
 @utils.lambda_wrapper
 def monitor_incoming_bucket(event, context):
     logger = event['logger']
     correlation_id = event['correlation_id']
-    process_manager = IncomingMonitor(logger=logger, correlation_id=correlation_id)
-    process_manager.main()
+    incoming_monitor = IncomingMonitor(logger=logger, correlation_id=correlation_id)
+    incoming_monitor.main()
+
+
+@utils.lambda_wrapper
+def process_interview_files(event, context):
+    logger = event['logger']
+    correlation_id = event['correlation_id']
+    processing_manager = ProcessingManager(logger=logger, correlation_id=correlation_id)
+    processing_manager.main()
 
 
 if __name__ == "__main__":

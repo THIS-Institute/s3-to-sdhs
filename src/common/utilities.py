@@ -739,12 +739,12 @@ def aws_request(method, endpoint_url, base_url, params=None, data=None, aws_api_
         return {'statusCode': response.status_code, 'body': response.text}
     except Exception as err:
         raise err
-#
-#
-# def aws_get(endpoint_url, base_url, params):
-#     return aws_request(method='GET', endpoint_url=endpoint_url, base_url=base_url, params=params)
-#
-#
+
+
+def aws_get(endpoint_url, base_url, params):
+    return aws_request(method='GET', endpoint_url=endpoint_url, base_url=base_url, params=params)
+
+
 def aws_post(endpoint_url, base_url, params=None, request_body=None):
     return aws_request(method='POST', endpoint_url=endpoint_url, base_url=base_url, params=params, data=request_body)
 
