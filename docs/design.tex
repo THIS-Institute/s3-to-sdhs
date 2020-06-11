@@ -84,9 +84,10 @@
 		\returncall{monitor}{core-api.west}{email}{user id}{}
 	
 	%% status table
-	\node (status-table) [resource, below=of monitor, label={[below]90: \textbf{Dynamodb}}] {Status table};
-		\handshake{monitor}{status-table}{add new\\ items}{}{vertical}
-
+	\node (status-table) [resource, below=of monitor, label={[below]90: \textbf{Dynamodb}}, yshift=-1cm] {Status table};
+		\draw [sync, ->, transform canvas={xshift=-0.5em}] (monitor) -- node[anchor=south east, yshift=1em] {add new\\ items} (status-table);
+		\draw [sync, <-, transform canvas={xshift=0.5em}, dashed] (monitor) -- (status-table);
+		
 	%% transfer
 	\node (transfer-manager) [timed-lambda, below=of status-table] {Transfer manager}; 
 		\returncall{transfer-manager}{status-table}{get\\ unprocessed\\ items}{}{vertical}
@@ -111,6 +112,9 @@
 		
 	%% clearing
 	\node (clear-processed) [timed-lambda, left=of monitor] {Clear processed};
+		\draw [sync, ->] ($(clear-processed.south east) + (0, 0.5em)$) -- node[above, sloped]{delete items} (status-table.145);
+		\draw [sync, <-, dashed] ($(clear-processed.south east) - (0.75em, 0)$) -- ($(status-table.145) - (1.25em, 0)$);
+		
 		\draw [sync, ->] ($(clear-processed.north) - (0.5em, 0)$) |- node[pos=0.75, anchor=south]{delete files} ($(incoming.west) + (0,0.5em)$);
 		\draw [sync, <-, dashed] ($(clear-processed.north) + (0.5em, 0)$) |- ($(incoming.west) - (0,0.5em)$);
 
@@ -127,17 +131,20 @@
 
 \section*{Notes}
 \subsection*{Bucket monitor function}
-Calculates and stores in Dynamodb the name that will be used to rename each incoming file at the SFTP server.
+Calculates and stores in Dynamodb the name that will be used to rename each incoming file at the SFTP server. At present, metadata provided by MyInterview does not contain any project identifier, so the name of the file can only reflect the relationship with the thiscovery user.
 
 Raises error if:
 \begin{compactenum}
 \item core API does not return user id
 \end{compactenum}
 
-\subsection*{Clear processed function}
-A second call to delete old items from Status table could be included.
+%\subsection*{Clear processed function}
+%A second call to delete old items from Status table could be included.
+
 \subsection*{Status table}
-Each item in this table relates to a file uploaded to the Incoming bucket by MyInterview. Files created by function Extract audio will not be entered as a separate item in this table.
+The stack also includes a second table with the same data fields as this one, which will keep historical transactions for audit purposes. That is, old items will be deleted from the Status table, but a copy of those old items will be stored in this second table.
+
+Each item in Status table relates to a file uploaded to the Incoming bucket by MyInterview. Files created by function Extract audio will not be entered as a separate item in this table.
 
 Each item should include:
 \begin{compactenum}

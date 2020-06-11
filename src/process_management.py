@@ -15,6 +15,7 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
+import json
 import os
 from http import HTTPStatus
 from pprint import pprint
@@ -41,17 +42,46 @@ class IncomingMonitor:
         interview_dir, file_type = s3_dirs.split('/')
         return s3_filename, interview_dir, file_type
 
+    @staticmethod
+    def get_user_id_from_core_api(email):
+        env_name = utils.get_environment_name()
+        if env_name == 'prod':
+            core_api_url = 'https://api.thiscovery.org/'
+        else:
+            core_api_url = f'https://{env_name}-api.thiscovery.org/'
+        result = utils.aws_get('v1/user', core_api_url, params={'email': email})
+
+        assert result['statusCode'] == HTTPStatus.OK, f'Call to core API returned error: {result}'
+        return json.loads(result['body'])['id']
+
     def add_new_file_to_status_table(self, s3_path, head):
         s3_filename, interview_dir, file_type = self.parse_s3_path(s3_path)
         metadata = head['Metadata']
-        email = metadata['email']
-        thiscovery_user_id = utils.aws_get('v1/user', )
+        question_number = metadata.get('question_index')
+        referrer_url = metadata.get('referrer')
+        interview_type = 'live'
+        project = None
+        user_id = self.get_user_id_from_core_api(metadata['email'])
+        if referrer_url:
+            project = referrer_url.split('/')[-1]
+            # todo: consider adding a DynamoDB table mapping project to a short identifier to use in the basename of renamed files
+
+        if question_number:
+            interview_type = 'on_demand'
+            target_basename = f'{project}_{interview_type}_{user_id}_{question_number}'
+        else:
+            target_basename = f'{project}_{interview_type}_{user_id}'
+
         item = {
             'original_filename': s3_filename,
             'original_path': s3_path,
             'interview_id': interview_dir,
+            'target_basename': target_basename,
+            'audio_extraction_attempts': 0,
+            'sdhs_transfer_attempts': 0,
             'processing_status': 'new',
         }
+        head['uploaded_to_s3'] = head['LastModified']
         del head['LastModified']
         try:
             self.logger.debug('Adding item to FileTransferStatus table', extra={'item': item})
