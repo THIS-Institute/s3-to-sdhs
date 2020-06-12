@@ -121,6 +121,4 @@ class TestMonitoring(test_utils.BaseTestCase):
             self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
 
     def test_incoming_monitor_main(self):
-        pass
-
-
+        result = self.monitor.main(bucket_name='mockincomingbucket')

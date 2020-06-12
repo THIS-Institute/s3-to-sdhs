@@ -22,7 +22,7 @@ from http import HTTPStatus
 from pprint import pprint
 
 import common.utilities as utils
-from common.dynamodb_utilities import Dynamodb
+from common.dynamodb_utilities import Dynamodb, STACK_NAME
 from common.s3_utilities import S3Client
 
 
@@ -100,19 +100,23 @@ class IncomingMonitor:
             self.logger.error(f'Key {s3_path} already exists in DynamoDb table', extra={'key': s3_path})
             raise
 
-    def main(self, filter_in={'ContentType': 'video/mp4'}):
+    def main(self, filter_in={'ContentType': 'video/mp4'}, bucket_name=None):
         """
         The main processing routine
 
         Args:
-            filter_in: dictionary of attributes names and values to be checked in s3_object header (metadata);
+            filter_in (dict): attributes names and values to be checked in s3_object header (metadata);
                        objects matching any of the set filters will be returned (OR match)
                        set this to None if no filter is to be applied
+            bucket_name (str): specify a different target bucket; used for testing
 
         Returns:
         """
         self.known_files = [x['id'] for x in self.ddb_client.scan(STATUS_TABLE)]
-        s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
+        if bucket_name:
+            s3_bucket_name = f'{STACK_NAME}-{utils.get_environment_name()}-{bucket_name}'
+        else:
+            s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
         objs = self.s3_client.list_objects(s3_bucket_name)['Contents']
         for o in objs:
             s3_path = o['Key']

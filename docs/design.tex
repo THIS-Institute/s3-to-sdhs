@@ -77,7 +77,7 @@
 \begin{center}
 \begin{tikzpicture}[node distance=1.5cm, font={\sf}, align=center]
 	%% monitoring
-	\node (incoming) [bucket] {Incoming bucket};
+	\node (incoming) [ext-storage] {Incoming bucket};
 	\node (monitor) [timed-lambda, below=of incoming] {Bucket monitor};
 		\returncall{monitor}{incoming.south}{list contents}{metadata}{vertical}
 	\node (core-api) [ext-resource, right=of monitor] {core API};
@@ -130,6 +130,8 @@
 
 
 \section*{Notes}
+\subsection*{Incoming bucket}
+This bucket is not part of the stack. The stack also includes a mock incoming bucket (not represented), which is part of the stack.
 \subsection*{Bucket monitor function}
 Calculates and stores in Dynamodb the name that will be used to rename each incoming file at the SFTP server. At present, metadata provided by MyInterview does not contain any project identifier, so the name of the file can only reflect the relationship with the thiscovery user.
 
@@ -142,7 +144,7 @@ Raises error if:
 %A second call to delete old items from Status table could be included.
 
 \subsection*{Status table}
-The stack also includes a second table with the same data fields as this one, which will keep historical transactions for audit purposes. That is, old items will be deleted from the Status table, but a copy of those old items will be stored in this second table.
+The stack also includes a second table with the same data fields as this one (not represented), which will keep historical transactions for audit purposes. That is, old items will be deleted from the Status table, but a copy of those old items will be stored in this second table.
 
 Each item in Status table relates to a file uploaded to the Incoming bucket by MyInterview. Files created by function Extract audio will not be entered as a separate item in this table.
 

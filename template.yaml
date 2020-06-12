@@ -90,7 +90,7 @@ Resources:
   MockIncomingBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${AWS::StackName}-mockincom-${AWS::AccountId}
+      BucketName: !Sub ${AWS::StackName}-mockincomingbucket
 Parameters:
   StackTagName:
     Type: String
