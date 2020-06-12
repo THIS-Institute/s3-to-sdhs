@@ -121,4 +121,11 @@ class TestMonitoring(test_utils.BaseTestCase):
             self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
 
     def test_incoming_monitor_main(self):
-        result = self.monitor.main(bucket_name='mockincomingbucket')
+        files_added_to_status_table = self.monitor.main(bucket_name='mockincomingbucket')
+        mock_bucket_contents = [x.replace('unit-test-data/', '') for x in sorted(self.test_s3_files.keys())]
+        for expected, actual in zip(mock_bucket_contents, sorted(files_added_to_status_table)):
+            self.assertEqual(expected, actual)
+            expected_item = self.ddb_client.get_item(STATUS_TABLE, key=expected)
+            expected_item['uploaded_to_s3'] = str(expected_item['LastModified'])
+            del expected_item['LastModified']
+            self.assertEqual(expected_item, self.test_s3_files[f'unit-test-data/{actual}'])

@@ -338,8 +338,8 @@ class BaseClient:
 
 
 class SecretsManager(BaseClient):
-    def __init__(self):
-        super().__init__('secretsmanager')
+    def __init__(self, profile_name=None):
+        super().__init__('secretsmanager', profile_name=profile_name)
 
     def _prefix_name(self, name, prefix):
         if prefix is None:
@@ -604,7 +604,7 @@ def get_secret(secret_name, namespace_override=None):
     logger.info('get_aws_secret: ' + secret_name)
 
     secret = None
-    client = SecretsManager()
+    client = SecretsManager(profile_name=namespace_override)
 
     try:
         get_secret_value_response = client.get_secret_value(secret_name)

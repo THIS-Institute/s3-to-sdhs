@@ -112,11 +112,12 @@ class IncomingMonitor:
 
         Returns:
         """
+        files_added_to_status_table = list()
         self.known_files = [x['id'] for x in self.ddb_client.scan(STATUS_TABLE)]
         if bucket_name:
             s3_bucket_name = f'{STACK_NAME}-{utils.get_environment_name()}-{bucket_name}'
         else:
-            s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
+            s3_bucket_name = utils.get_secret("incoming-interviews-bucket", namespace_override='/prod/')['name']
         objs = self.s3_client.list_objects(s3_bucket_name)['Contents']
         for o in objs:
             s3_path = o['Key']
@@ -133,6 +134,8 @@ class IncomingMonitor:
 
             if process_file and s3_path not in self.known_files:
                 self.add_new_file_to_status_table(s3_path, head)
+                files_added_to_status_table.append(s3_path)
+        return files_added_to_status_table
 
 
 class ProcessingManager:
