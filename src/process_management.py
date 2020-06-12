@@ -15,6 +15,7 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
+import datetime
 import json
 import os
 from http import HTTPStatus
@@ -39,7 +40,7 @@ class IncomingMonitor:
 
     def parse_s3_path(self, s3_path):
         s3_dirs, s3_filename = os.path.split(s3_path)
-        interview_dir, file_type = s3_dirs.split('/')
+        interview_dir, file_type = s3_dirs.split('/')[-2:]
         return s3_filename, interview_dir, file_type
 
     @staticmethod
@@ -81,7 +82,7 @@ class IncomingMonitor:
             'sdhs_transfer_attempts': 0,
             'processing_status': 'new',
         }
-        head['uploaded_to_s3'] = head['LastModified']
+        head['uploaded_to_s3'] = str(head['LastModified'])
         del head['LastModified']
         try:
             self.logger.debug('Adding item to FileTransferStatus table', extra={'item': item})
@@ -94,8 +95,10 @@ class IncomingMonitor:
                 correlation_id=self.correlation_id
             )
             assert result['ResponseMetadata']['HTTPStatusCode'] == HTTPStatus.OK, f"put_item operation failed with response: {result}"
+            return result
         except utils.DetailedValueError:
             self.logger.error(f'Key {s3_path} already exists in DynamoDb table', extra={'key': s3_path})
+            raise
 
     def main(self, filter_in={'ContentType': 'video/mp4'}):
         """
