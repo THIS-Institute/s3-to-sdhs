@@ -29,11 +29,18 @@ TEST_FILES = [
 def main():
     """
     Based on https://stackoverflow.com/a/55687670
+
+    This function could have been simpler if the copy_from function had been used (it preserves objects' metadata by default),
+    but that would have required setting cross-account access between the S3 buckets
+    (https://aws.amazon.com/premiumsupport/knowledge-center/cross-account-access-s3/#:~:text=Using%20cross%2Daccount%20IAM%20roles,AWS%20account%20or%20AWS%20services)
+    and then assuming the required role (https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-api.html).
+    Probably worth refactoring it to work in this way when things are calmer (quicker, cheaper and also a good learning exercise).
+
     Returns:
 
     """
-    # source_session = boto3.session.Session(profile_name=utils.namespace2profile('/prod/'))
-    # source_resource = source_session.resource('s3')
+    source_session = boto3.session.Session(profile_name=utils.namespace2profile('/prod/'))
+    source_resource = source_session.resource('s3')
     source_bucket_name = utils.get_secret("incoming-interviews-bucket",
                                           namespace_override='/prod/')['name']
 
@@ -43,13 +50,9 @@ def main():
 
     for key in TEST_FILES:
         print(f'Working on {key}')
-        copy_source = {
-            'Bucket': source_bucket_name,
-            'Key': key,
-        }
-        # source_obj = source_resource.Object(source_bucket_name, key)
+        source_obj = source_resource.Object(source_bucket_name, key)
         target_obj = target_resource.Object(target_bucket_name, key.replace('unit-test-data/', ''))
-        target_obj.copy_from(CopySource=copy_source)
+        target_obj.put(Body=source_obj.get()['Body'].read(), Metadata=source_obj.metadata)
 
 
 if __name__ == '__main__':
