@@ -271,6 +271,8 @@ def _get_default_session(profile_name):
     """
     if DEFAULT_SESSION is None:
         setup_default_session(profile_name)
+    elif DEFAULT_SESSION.profile_name != profile_name:
+        setup_default_session(profile_name)
     return DEFAULT_SESSION
 
 
@@ -595,8 +597,11 @@ def get_secret(secret_name, namespace_override=None):
     # need to prepend secret name with namespace...
     if namespace_override is None:
         namespace = get_aws_namespace()
+        profile = None
     else:
         namespace = namespace_override
+        from local.secrets import PROFILE_MAP
+        profile = PROFILE_MAP[namespace2name(namespace_override)]
 
     if namespace is not None:
         secret_name = namespace + secret_name
@@ -604,7 +609,7 @@ def get_secret(secret_name, namespace_override=None):
     logger.info('get_aws_secret: ' + secret_name)
 
     secret = None
-    client = SecretsManager(profile_name=namespace_override)
+    client = SecretsManager(profile_name=profile)
 
     try:
         get_secret_value_response = client.get_secret_value(secret_name)
