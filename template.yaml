@@ -82,10 +82,10 @@ Resources:
           SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
       MemorySize: !Ref EnvConfiglambdamemorysizeAsString
       Events:
-        Archives:
+        InterviewAudio:
           Type: S3
           Properties:
-            Bucket: !Ref Archives
+            Bucket: !Ref InterviewAudio
             Events:
               - s3:ObjectCreated:*
               - s3:ObjectRemoved:*
