@@ -17,6 +17,7 @@
 #
 import datetime
 import json
+import moviepy.editor as mp
 import os
 from http import HTTPStatus
 from pprint import pprint
@@ -138,7 +139,7 @@ class IncomingMonitor:
         return files_added_to_status_table
 
 
-class ProcessingManager:
+class TransferManager:
 
     def __init__(self, logger, correlation_id=None):
         self.logger = logger
@@ -146,10 +147,10 @@ class ProcessingManager:
         self.ddb_client = Dynamodb()
 
     def main(self):
-        pass
-        # notifications = get_notifications(NotificationAttributes.STATUS.value, [NotificationStatus.NEW.value, NotificationStatus.RETRYING.value])
-        #
-        # logger.info('process_notifications', extra={'count': str(len(notifications))})
+        items_to_process = self.ddb_client.scan(STATUS_TABLE, filter_attr_name='processing_status', filter_attr_values=['new', 'audio extracted'])
+        self.logger.info('items_to_process', extra={'count': str(len(items_to_process))})
+        for i in items_to_process:
+            pass
         #
         # # note that we need to process all registrations first, then do task signups (otherwise we might try to process a signup for someone not yet registered)
         # signup_notifications = []
@@ -176,6 +177,18 @@ class ProcessingManager:
         #     process_user_login(login_notification)
 
 
+def extract_audio(video_meta):
+    """
+    Args:
+        video_meta: Metadata of video file S3 object
+
+    Returns:
+    """
+
+    audioclip = mp.AudioFileClip(video_file)
+
+
+
 @utils.lambda_wrapper
 def monitor_incoming_bucket(event, context):
     logger = event['logger']
@@ -188,8 +201,15 @@ def monitor_incoming_bucket(event, context):
 def process_interview_files(event, context):
     logger = event['logger']
     correlation_id = event['correlation_id']
-    processing_manager = ProcessingManager(logger=logger, correlation_id=correlation_id)
-    processing_manager.main()
+    transfer_manager = TransferManager(logger=logger, correlation_id=correlation_id)
+    transfer_manager.main()
+
+
+@utils.lambda_wrapper
+def extract_audio_handler(event, context):
+    logger = event['logger']
+    correlation_id = event['correlation_id']
+    extract_audio()
 
 
 if __name__ == "__main__":
