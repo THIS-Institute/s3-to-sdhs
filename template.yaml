@@ -1,6 +1,65 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
 Resources:
+  ExtractAudioJobTemplate:
+    Type: AWS::MediaConvert::JobTemplate
+    Properties:
+      Name: !Sub ${AWS::StackName}-ExtractAudioJobTemplate
+      SettingsJson:
+        {
+          "OutputGroups": [
+          {
+            "Name": "File Group",
+            "Outputs": [
+            {
+              "ContainerSettings": {
+                "Container": "RAW"
+              },
+              "AudioDescriptions": [
+              {
+                "AudioTypeControl": "FOLLOW_INPUT",
+                "AudioSourceName": "Audio Selector 1",
+                "CodecSettings": {
+                  "Codec": "MP3",
+                  "Mp3Settings": {
+                    "Bitrate": 192000,
+                    "Channels": 2,
+                    "RateControlMode": "CBR",
+                    "SampleRate": 48000
+                  }
+                },
+                "LanguageCodeControl": "FOLLOW_INPUT"
+              }
+              ]
+            }
+            ],
+            "OutputGroupSettings": {
+              "Type": "FILE_GROUP_SETTINGS",
+              "FileGroupSettings": {
+                "Destination": "s3://s3-to-sdhs-test-afs25-mockincomingbucket/"
+              }
+            }
+          }
+          ],
+          "AdAvailOffset": 0,
+          "Inputs": [
+          {
+            "AudioSelectors": {
+              "Audio Selector 1": {
+                "Offset": 0,
+                "DefaultSelection": "DEFAULT",
+                "ProgramSelection": 1
+              }
+            },
+            "FilterEnable": "AUTO",
+            "PsiControl": "USE_PSI",
+            "FilterStrength": 0,
+            "DeblockFilter": "DISABLED",
+            "DenoiseFilter": "DISABLED",
+            "TimecodeSource": "EMBEDDED"
+          }
+          ]
+        }
   TransferFiles:
     Type: AWS::Serverless::Function
     Properties:
@@ -30,10 +89,10 @@ Resources:
             Events:
               - s3:ObjectCreated:*
               - s3:ObjectRemoved:*
-  Archives:
+  InterviewAudio:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${AWS::StackName}-archives-${AWS::AccountId}
+      BucketName: !Sub ${AWS::StackName}-interview-audio
   FileTransferStatus:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -64,7 +123,7 @@ Resources:
         - AWSXrayWriteOnlyAccess
         - AmazonS3ReadOnlyAccess
         - S3CrudPolicy:
-            BucketName: !Ref Archives
+            BucketName: !Ref InterviewAudio
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
         - DynamoDBCrudPolicy:
@@ -73,8 +132,8 @@ Resources:
             BucketName: !Ref MockIncomingBucket
       Environment:
         Variables:
-          BUCKET_NAME: !Ref Archives
-          BUCKET_ARN: !GetAtt Archives.Arn
+          BUCKET_NAME: !Ref InterviewAudio
+          BUCKET_ARN: !GetAtt InterviewAudio.Arn
           SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
           TABLE_NAME: !Ref FileTransferStatus
           TABLE_ARN: !GetAtt FileTransferStatus.Arn
