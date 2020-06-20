@@ -15,7 +15,9 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
+import os
 from http import HTTPStatus
+
 import common.utilities as utils
 from common.dynamodb_utilities import STACK_NAME
 
@@ -34,6 +36,7 @@ class MediaConvertClient(utils.BaseClient):
         else:
             super().__init__('mediaconvert', profile_name=profile_name, endpoint_url=endpoint_url)
         self.sm_client = None
+        self.env_name = utils.get_environment_name()
 
     def describe_endpoints(self, **kwargs):
         """
@@ -49,9 +52,9 @@ class MediaConvertClient(utils.BaseClient):
             self.sm_client = utils.SecretsManager()
         self.sm_client.create_or_update_secret(ENDPOINT_SECRET_NAME, first_endpoint)
 
-    def create_audio_extraction_job(self, input_file_s3_key, **kwargs):
+    def create_audio_extraction_job(self, input_bucket_name, input_file_s3_key, **kwargs):
+        folders = os.path.split(input_file_s3_key)[0]
         aws_account_number = utils.get_secret('aws-account')['number']
-        # todo: add role creation to CF template
         response = self.client.create_job(
             Role=f"arn:aws:iam::{aws_account_number}:role/MediaConvert_Default_Role",
             Settings={
@@ -84,7 +87,7 @@ class MediaConvertClient(utils.BaseClient):
                         "OutputGroupSettings": {
                             "Type": "FILE_GROUP_SETTINGS",
                             "FileGroupSettings": {
-                                "Destination": f"s3://{STACK_NAME}-interview-audio/$fn$"
+                                "Destination": f"s3://{STACK_NAME}-{self.env_name}-interview-audio/{folders}/$fn$.mp3"
                             }
                         }
                     }
@@ -105,17 +108,20 @@ class MediaConvertClient(utils.BaseClient):
                         "DeblockFilter": "DISABLED",
                         "DenoiseFilter": "DISABLED",
                         "TimecodeSource": "EMBEDDED",
-                        "FileInput": f"s3://{input_file_s3_key}"
+                        "FileInput": f"s3://{input_bucket_name}/{input_file_s3_key}"
                     }
                 ]
             },
             StatusUpdateInterval="SECONDS_60",
             **kwargs
         )
-        from pprint import pprint
-        pprint(response)
+        assert response['ResponseMetadata']['HTTPStatusCode'] == HTTPStatus.CREATED, f'MediaConvert create_job call failed with response: {response}'
+        return response
 
-
+    def list_jobs(self, **kwargs):
+        response = self.client.list_jobs(**kwargs)
+        assert response['ResponseMetadata']['HTTPStatusCode'] == HTTPStatus.OK, f'MediaConvert list_jobs call failed with response: {response}'
+        return response
 
 
 if __name__ == '__main__':
