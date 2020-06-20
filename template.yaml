@@ -36,7 +36,7 @@ Resources:
             "OutputGroupSettings": {
               "Type": "FILE_GROUP_SETTINGS",
               "FileGroupSettings": {
-                "Destination": !Ref MockIncomingBucket
+                "Destination": "s3://s3-to-sdhs-test-afs25-mockincomingbucket/$fn$"
               }
             }
           }

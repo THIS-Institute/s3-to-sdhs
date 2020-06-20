@@ -277,7 +277,7 @@ def _get_default_session(profile_name):
 
 
 class BaseClient:
-    def __init__(self, service_name, profile_name=None, client_type='low-level'):
+    def __init__(self, service_name, profile_name=None, client_type='low-level', **kwargs):
         """
         Args:
             service_name (str): AWS service name (e.g. dynamodb, lambda, etc)
@@ -288,9 +288,9 @@ class BaseClient:
             profile_name = namespace2profile(get_aws_namespace())
         session = _get_default_session(profile_name)
         if client_type == 'low-level':
-            self.client = session.client(service_name)
+            self.client = session.client(service_name, **kwargs)
         elif client_type == 'resource':
-            self.client = session.resource(service_name)
+            self.client = session.resource(service_name, **kwargs)
         else:
             raise NotImplementedError(f"client_type can only be 'low-level' or 'resource', not {client_type}")
         self.logger = get_logger()
@@ -393,9 +393,10 @@ class SecretsManager(BaseClient):
             assert response['ResponseMetadata']['HTTPStatusCode'] == 200, f'Call to boto3.client.update_secret failed with response: {response}'
         except Exception as exception:
             error_message = exception.args[0]
-            self.logger.error(error_message)
+            self.logger.debug(error_message)
             response = self._create_secret(secret_id, value)
             assert response['ResponseMetadata']['HTTPStatusCode'] == 200, f'Call to boto3.client.create_secret failed with response: {response}'
+            self.logger.info(f'Added new secret {secret_id} with value {value}')
         return response
 # endregion
 
