@@ -55,35 +55,6 @@ Resources:
             DeblockFilter: DISABLED
             DenoiseFilter: DISABLED
             TimecodeSource: EMBEDDED
-  TransferFiles:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ${AWS::StackName}-TransferFiles
-      Description: !Sub
-        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
-        - ResourceName: TransferFiles
-      CodeUri: src
-      Handler: transfer_process.transfer_files
-      Runtime: python3.7
-      Timeout: 900
-      Tracing: Active
-      Policies:
-        - AWSXrayWriteOnlyAccess
-        - AmazonS3ReadOnlyAccess
-        - AWSSecretsManagerGetSecretValuePolicy:
-            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
-      Environment:
-        Variables:
-          SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
-      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
-      Events:
-        InterviewAudio:
-          Type: S3
-          Properties:
-            Bucket: !Ref InterviewAudio
-            Events:
-              - s3:ObjectCreated:*
-              - s3:ObjectRemoved:*
   InterviewAudio:
     Type: AWS::S3::Bucket
     Properties:
@@ -165,6 +136,35 @@ Resources:
           TABLE_NAME: !Ref FileTransferStatus
           TABLE_ARN: !GetAtt FileTransferStatus.Arn
           SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
+  TransferFile:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-TransferFile
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: TransferFile
+      CodeUri: src
+      Handler: main.transfer_file
+      Runtime: python3.7
+      Timeout: 900
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AmazonS3ReadOnlyAccess
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
+      Environment:
+        Variables:
+          SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
+      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Events:
+        InterviewAudio:
+          Type: S3
+          Properties:
+            Bucket: !Ref InterviewAudio
+            Events:
+              - s3:ObjectCreated:*
+              - s3:ObjectRemoved:*
 Parameters:
   StackTagName:
     Type: String
