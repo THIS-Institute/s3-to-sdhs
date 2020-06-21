@@ -209,6 +209,19 @@ class TransferManager:
                 self.s3_client.download_fileobj(s3_bucket_name, file_s3_key, sdhs_f)
         self.logger.debug(f'Completed transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
 
+        item = self.ddb_client.get_item(STATUS_TABLE, key=file_s3_key)
+        item_status = item['processing status']
+        assert item_status == 'audio extraction job submitted', f'Item processing status is {item_status}. Expected "audio extraction job submitted"'
+        self.ddb_client.update_item(
+            table_name=STATUS_TABLE,
+            key=file_s3_key,
+            name_value_pairs={
+                "sdhs_transfer_attempts": item["sdhs_transfer_attempts"] + 1,
+                "processing_status": "processed",
+            },
+            correlation_id=self.correlation_id
+        )
+
 
 @utils.lambda_wrapper
 def monitor_incoming_bucket(event, context):

@@ -21,14 +21,15 @@ import unittest
 
 from dateutil.tz import tzutc
 from http import HTTPStatus
+from time import sleep
 
 import src.common.utilities as utils
 import tests.testing_utilities as test_utils
 from src.common.dynamodb_utilities import Dynamodb, STACK_NAME
-from src.main import IncomingMonitor, STATUS_TABLE
+from src.main import IncomingMonitor, ProcessIncoming, TransferManager, STATUS_TABLE
 
 
-class TestMonitoring(test_utils.BaseTestCase):
+class TestTransfer(test_utils.BaseTestCase):
     test_user = {
         'id': '35224bd5-f8a8-41f6-8502-f96e12d6ddde',
         'email': "delia@email.co.uk",
@@ -108,24 +109,28 @@ class TestMonitoring(test_utils.BaseTestCase):
         super().setUpClass()
         cls.ddb_client = Dynamodb()
         cls.monitor = IncomingMonitor(utils.get_logger())
+        cls.incoming_processor = ProcessIncoming()
+        cls.transfer_manager = TransferManager()
 
-    def test_get_user_id_from_core_api(self):
-        user_id = self.monitor.get_user_id_from_core_api(self.test_user['email'])
-        self.assertEqual(self.test_user['id'], user_id)
+    def check_item_processing_status(self, key, expected_status):
+        item = self.ddb_client.get_item(table_name=STATUS_TABLE, key=key)
+        self.assertEqual(expected_status, item['processing status'])
 
-    def test_add_new_file_to_status_table(self):
+    def test_transfer(self):
         for k, v in self.test_s3_files.items():
+            # add to status table
+            # self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
             head = v['head']
             result = self.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
             self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])
-            self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
 
-    def test_incoming_monitor_main(self):
-        files_added_to_status_table = self.monitor.main(bucket_name='mockincomingbucket')
-        mock_bucket_contents = [x.replace('unit-test-data/', '') for x in sorted(self.test_s3_files.keys())]
-        for expected, actual in zip(mock_bucket_contents, sorted(files_added_to_status_table)):
-            self.assertEqual(expected, actual)
-            expected_item = self.ddb_client.get_item(STATUS_TABLE, key=expected)
-            expected_item['uploaded_to_s3'] = str(expected_item['LastModified'])
-            del expected_item['LastModified']
-            self.assertEqual(expected_item, self.test_s3_files[f'unit-test-data/{actual}'])
+            # process added item
+            self.incoming_processor.main()
+            self.check_item_processing_status(k, 'audio extraction job submitted')
+
+            # check item status is processed
+            sleep(10)
+            self.check_item_processing_status(k, 'processed')
+
+            # cleanup
+            self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
