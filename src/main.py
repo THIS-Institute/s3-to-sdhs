@@ -222,7 +222,7 @@ def process_incoming_files(event, context):
 
 
 @utils.lambda_wrapper
-def transfer_files(event, context):
+def transfer_file(event, context):
     """
     Triggered by S3 event when running on AWS
     """
