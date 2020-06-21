@@ -178,11 +178,12 @@ class TransferManager:
         self.ddb_client = Dynamodb()
         self.s3_client = S3Client()
 
-    def get_target_basename(self, file_s3_key):
-        return self.ddb_client.get_item(STATUS_TABLE, file_s3_key)['target_basename']
+    def get_target_basename(self, status_table_key):
+        return self.ddb_client.get_item(STATUS_TABLE, status_table_key)['target_basename']
 
     def transfer_file(self, file_s3_key, s3_bucket_name=None):
-        target_basename = self.get_target_basename(file_s3_key)
+        status_table_key = f'{os.path.splitext(file_s3_key)[0]}.mp4'
+        target_basename = self.get_target_basename(status_table_key)
         if s3_bucket_name is None:
             s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
         sdhs_credentials = utils.get_secret("sdhs-connection")
@@ -209,12 +210,12 @@ class TransferManager:
                 self.s3_client.download_fileobj(s3_bucket_name, file_s3_key, sdhs_f)
         self.logger.debug(f'Completed transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
 
-        item = self.ddb_client.get_item(STATUS_TABLE, key=file_s3_key)
+        item = self.ddb_client.get_item(STATUS_TABLE, key=status_table_key)
         item_status = item['processing_status']
         assert item_status == 'audio extraction job submitted', f'Item processing_status is {item_status}. Expected "audio extraction job submitted"'
         self.ddb_client.update_item(
             table_name=STATUS_TABLE,
-            key=file_s3_key,
+            key=status_table_key,
             name_value_pairs={
                 "sdhs_transfer_attempts": item["sdhs_transfer_attempts"] + 1,
                 "processing_status": "processed",
