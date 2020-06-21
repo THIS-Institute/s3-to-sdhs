@@ -108,18 +108,18 @@ class TestTransfer(test_utils.BaseTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.ddb_client = Dynamodb()
-        cls.monitor = IncomingMonitor(utils.get_logger())
-        cls.incoming_processor = ProcessIncoming()
-        cls.transfer_manager = TransferManager()
+        cls.monitor = IncomingMonitor(cls.logger)
+        cls.incoming_processor = ProcessIncoming(cls.logger)
+        cls.transfer_manager = TransferManager(cls.logger)
 
     def check_item_processing_status(self, key, expected_status):
         item = self.ddb_client.get_item(table_name=STATUS_TABLE, key=key)
-        self.assertEqual(expected_status, item['processing status'])
+        self.assertEqual(expected_status, item['processing_status'])
 
     def test_transfer(self):
         for k, v in self.test_s3_files.items():
             # add to status table
-            # self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
+            self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
             head = v['head']
             result = self.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
             self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])

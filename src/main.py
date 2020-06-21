@@ -210,8 +210,8 @@ class TransferManager:
         self.logger.debug(f'Completed transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
 
         item = self.ddb_client.get_item(STATUS_TABLE, key=file_s3_key)
-        item_status = item['processing status']
-        assert item_status == 'audio extraction job submitted', f'Item processing status is {item_status}. Expected "audio extraction job submitted"'
+        item_status = item['processing_status']
+        assert item_status == 'audio extraction job submitted', f'Item processing_status is {item_status}. Expected "audio extraction job submitted"'
         self.ddb_client.update_item(
             table_name=STATUS_TABLE,
             key=file_s3_key,
