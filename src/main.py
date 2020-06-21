@@ -175,7 +175,7 @@ def monitor_incoming_bucket(event, context):
 
 
 @utils.lambda_wrapper
-def process_interview_files(event, context):
+def process_incoming_files(event, context):
     logger = event['logger']
     correlation_id = event['correlation_id']
     transfer_manager = ProcessIncoming(logger=logger, correlation_id=correlation_id)
