@@ -176,10 +176,13 @@ class TransferManager:
         self.logger = logger
         self.correlation_id = correlation_id
         self.ddb_client = Dynamodb()
-        self.media_convert_client = MediaConvertClient()
         self.s3_client = S3Client()
 
+    def get_target_basename(self, file_s3_key):
+        return self.ddb_client.get_item(STATUS_TABLE, file_s3_key)['target_basename']
+
     def transfer_file(self, file_s3_key, s3_bucket_name=None):
+        target_basename = self.get_target_basename(file_s3_key)
         if s3_bucket_name is None:
             s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
         sdhs_credentials = utils.get_secret("sdhs-connection")
@@ -198,9 +201,11 @@ class TransferManager:
         with pysftp.Connection(**sdhs_credentials, cnopts=cnopts) as sftp:
             # todo: add a Dynamodb table to store project specific settings, such as destination folder in sdhs
             sftp.chdir('ftpuser')  # comment this out when finished with testing
-            s3_dirs, s3_filename = os.path.split(file_s3_key)
-            self.logger.debug('Path of s3_obj', extra={'s3_dirs': s3_dirs, 's3_filename': s3_filename})
-            with sftp.sftp_client.open(s3_filename, 'wb') as sdhs_f:
+            # s3_dirs, s3_filename = os.path.split(file_s3_key)
+            # self.logger.debug('Path of s3_obj', extra={'s3_dirs': s3_dirs, 's3_filename': s3_filename})
+            _, extension = os.path.splitext(file_s3_key)
+            target_filename = f'{target_basename}.{extension}'
+            with sftp.sftp_client.open(target_filename, 'wb') as sdhs_f:
                 self.s3_client.download_fileobj(s3_bucket_name, file_s3_key, sdhs_f)
         self.logger.debug(f'Completed transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
 
