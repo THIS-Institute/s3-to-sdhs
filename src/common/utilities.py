@@ -16,7 +16,7 @@
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 
 import boto3
-# import datetime
+import datetime
 import epsagon
 import functools
 import json
@@ -29,7 +29,7 @@ import uuid
 # import validators
 #
 from botocore.exceptions import ClientError
-# from dateutil import parser, tz
+from dateutil import parser, tz
 from http import HTTPStatus
 from pythonjsonlogger import jsonlogger
 # from timeit import default_timer as timer
@@ -164,10 +164,10 @@ def running_on_aws():
     except:
         region = None
     return region is not None
-#
-#
-# def now_with_tz():
-#     return datetime.datetime.now(tz.tzlocal())
+
+
+def now_with_tz():
+    return datetime.datetime.now(tz.tzlocal())
 #
 #
 # def get_start_time():
@@ -271,11 +271,13 @@ def _get_default_session(profile_name):
     """
     if DEFAULT_SESSION is None:
         setup_default_session(profile_name)
+    elif DEFAULT_SESSION.profile_name != profile_name:
+        setup_default_session(profile_name)
     return DEFAULT_SESSION
 
 
 class BaseClient:
-    def __init__(self, service_name, profile_name=None, client_type='low-level'):
+    def __init__(self, service_name, profile_name=None, client_type='low-level', **kwargs):
         """
         Args:
             service_name (str): AWS service name (e.g. dynamodb, lambda, etc)
@@ -286,9 +288,9 @@ class BaseClient:
             profile_name = namespace2profile(get_aws_namespace())
         session = _get_default_session(profile_name)
         if client_type == 'low-level':
-            self.client = session.client(service_name)
+            self.client = session.client(service_name, **kwargs)
         elif client_type == 'resource':
-            self.client = session.resource(service_name)
+            self.client = session.resource(service_name, **kwargs)
         else:
             raise NotImplementedError(f"client_type can only be 'low-level' or 'resource', not {client_type}")
         self.logger = get_logger()
@@ -338,8 +340,8 @@ class BaseClient:
 
 
 class SecretsManager(BaseClient):
-    def __init__(self):
-        super().__init__('secretsmanager')
+    def __init__(self, profile_name=None):
+        super().__init__('secretsmanager', profile_name=profile_name)
 
     def _prefix_name(self, name, prefix):
         if prefix is None:
@@ -391,9 +393,10 @@ class SecretsManager(BaseClient):
             assert response['ResponseMetadata']['HTTPStatusCode'] == 200, f'Call to boto3.client.update_secret failed with response: {response}'
         except Exception as exception:
             error_message = exception.args[0]
-            self.logger.error(error_message)
+            self.logger.debug(error_message)
             response = self._create_secret(secret_id, value)
             assert response['ResponseMetadata']['HTTPStatusCode'] == 200, f'Call to boto3.client.create_secret failed with response: {response}'
+            self.logger.info(f'Added new secret {secret_id} with value {value}')
         return response
 # endregion
 
@@ -552,12 +555,12 @@ def get_aws_namespace():
         else:
             secrets_namespace = SECRETS_NAMESPACE
     return secrets_namespace
-#
-#
-# def get_environment_name():
-#     namespace = get_aws_namespace()
-#     # strip leading and trailing '/' chars
-#     return namespace[1:-1]
+
+
+def get_environment_name():
+    namespace = get_aws_namespace()
+    # strip leading and trailing '/' chars
+    return namespace[1:-1]
 #
 #
 # # this belongs in user_task class as a property - moved here to avoid circular includes
@@ -595,8 +598,11 @@ def get_secret(secret_name, namespace_override=None):
     # need to prepend secret name with namespace...
     if namespace_override is None:
         namespace = get_aws_namespace()
+        profile = None
     else:
         namespace = namespace_override
+        from local.secrets import PROFILE_MAP
+        profile = PROFILE_MAP[namespace2name(namespace_override)]
 
     if namespace is not None:
         secret_name = namespace + secret_name
@@ -604,7 +610,7 @@ def get_secret(secret_name, namespace_override=None):
     logger.info('get_aws_secret: ' + secret_name)
 
     secret = None
-    client = SecretsManager()
+    client = SecretsManager(profile_name=profile)
 
     try:
         get_secret_value_response = client.get_secret_value(secret_name)
@@ -739,12 +745,12 @@ def aws_request(method, endpoint_url, base_url, params=None, data=None, aws_api_
         return {'statusCode': response.status_code, 'body': response.text}
     except Exception as err:
         raise err
-#
-#
-# def aws_get(endpoint_url, base_url, params):
-#     return aws_request(method='GET', endpoint_url=endpoint_url, base_url=base_url, params=params)
-#
-#
+
+
+def aws_get(endpoint_url, base_url, params):
+    return aws_request(method='GET', endpoint_url=endpoint_url, base_url=base_url, params=params)
+
+
 def aws_post(endpoint_url, base_url, params=None, request_body=None):
     return aws_request(method='POST', endpoint_url=endpoint_url, base_url=base_url, params=params, data=request_body)
 

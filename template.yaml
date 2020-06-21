@@ -1,15 +1,157 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
 Resources:
-  TransferFiles:
+  MediaConvertRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - mediaconvert.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess
+      RoleName: MediaConvert_Default_Role
+  ExtractAudioJobTemplate:
+    Type: AWS::MediaConvert::JobTemplate
+    Properties:
+      Name: !Sub ${AWS::StackName}-ExtractAudioJobTemplate
+      SettingsJson:
+        OutputGroups:
+          - Name: File Group
+            Outputs:
+              - ContainerSettings:
+                  Container: RAW
+                AudioDescriptions:
+                  - AudioTypeControl: FOLLOW_INPUT
+                    AudioSourceName: Audio Selector 1
+                    CodecSettings:
+                      Codec: MP3
+                      Mp3Settings:
+                        Bitrate: 192000
+                        Channels: 2
+                        RateControlMode: CBR
+                        SampleRate: 48000
+                    LanguageCodeControl: FOLLOW_INPUT
+            OutputGroupSettings:
+              Type: FILE_GROUP_SETTINGS
+              FileGroupSettings:
+                Destination: s3://s3-to-sdhs-test-afs25-mockincomingbucket/$fn$
+        AdAvailOffset: 0
+        Inputs:
+          - AudioSelectors:
+              Audio Selector 1:
+                Offset: 0
+                DefaultSelection: DEFAULT
+                ProgramSelection: 1
+            FilterEnable: AUTO
+            PsiControl: USE_PSI
+            FilterStrength: 0
+            DeblockFilter: DISABLED
+            DenoiseFilter: DISABLED
+            TimecodeSource: EMBEDDED
+  InterviewAudio:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-interview-audio
+  FileTransferStatus:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      TableName: !Sub ${AWS::StackName}-FileTransferStatus
+  MonitorIncomingBucket:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-TransferFiles
+      FunctionName: !Sub ${AWS::StackName}-MonitorIncomingBucket
       Description: !Sub
         - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
-        - ResourceName: TransferFiles
+        - ResourceName: MonitorIncomingBucket
       CodeUri: src
-      Handler: transfer_process.transfer_files
+      Handler: main.monitor_incoming_bucket
+      Runtime: python3.7
+      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Timeout: !Ref EnvConfiglambdatimeoutAsString
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AmazonS3ReadOnlyAccess
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTransferStatus
+        - S3CrudPolicy:
+            BucketName: !Ref MockIncomingBucket
+      Environment:
+        Variables:
+          SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
+          TABLE_NAME: !Ref FileTransferStatus
+          TABLE_ARN: !GetAtt FileTransferStatus.Arn
+          BUCKET_NAME_2: !Ref MockIncomingBucket
+          BUCKET_ARN_2: !GetAtt MockIncomingBucket.Arn
+      Events:
+        Timer:
+          Type: Schedule
+          Properties:
+            Schedule: rate(20 minutes)
+          Metadata:
+            StackeryName: MonitorIncomingBucketTimer
+  MockIncomingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-mockincomingbucket
+  ProcessIncomingFiles:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ProcessIncomingFiles
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: ProcessIncomingFiles
+      CodeUri: src
+      Handler: main.process_incoming_files
+      Runtime: python3.7
+      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Timeout: !Ref EnvConfiglambdatimeoutAsString
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTransferStatus
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref FileTransferStatus
+          TABLE_ARN: !GetAtt FileTransferStatus.Arn
+          SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
+      Events:
+        Timer2:
+          Type: Schedule
+          Properties:
+            Schedule: rate(30 minutes)
+          Metadata:
+            StackeryName: ProcessIncomingFilesTimer
+  TransferFile:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-TransferFile
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: TransferFile
+      CodeUri: src
+      Handler: main.transfer_file
       Runtime: python3.7
       Timeout: 900
       Tracing: Active
@@ -18,17 +160,69 @@ Resources:
         - AmazonS3ReadOnlyAccess
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTransferStatus
       Environment:
         Variables:
           SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
+          TABLE_NAME: !Ref FileTransferStatus
+          TABLE_ARN: !GetAtt FileTransferStatus.Arn
       MemorySize: !Ref EnvConfiglambdamemorysizeAsString
       Events:
-        Timer:
+        InterviewAudio:
+          Type: S3
+          Properties:
+            Bucket: !Ref InterviewAudio
+            Events:
+              - s3:ObjectCreated:*
+  FileTransferAudit:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      TableName: !Sub ${AWS::StackName}-FileTransferAudit
+  ClearProcessed:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ClearProcessed
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: ClearProcessed
+      CodeUri: src
+      Handler: main.clear_processed
+      Runtime: python3.7
+      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Timeout: !Ref EnvConfiglambdatimeoutAsString
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTransferAudit
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTransferStatus
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref FileTransferAudit
+          TABLE_ARN: !GetAtt FileTransferAudit.Arn
+          TABLE_NAME_2: !Ref FileTransferStatus
+          TABLE_ARN_2: !GetAtt FileTransferStatus.Arn
+          SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
+      Events:
+        Timer3:
           Type: Schedule
           Properties:
-            Schedule: rate(1 minute)
+            Schedule: rate(12 hours)
           Metadata:
-            StackeryName: TransferFilesTimer
+            StackeryName: ClearProcessedTimer
 Parameters:
   StackTagName:
     Type: String
@@ -39,6 +233,10 @@ Parameters:
   EnvConfiglambdamemorysizeAsString:
     Type: AWS::SSM::Parameter::Value<String>
     Default: /<EnvironmentName>/lambda/memory-size
+  EnvConfiglambdatimeoutAsString:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /<EnvironmentName>/lambda/timeout
 Metadata:
   EnvConfigParameters:
     EnvConfiglambdamemorysizeAsString: lambda.memory-size
+    EnvConfiglambdatimeoutAsString: lambda.timeout

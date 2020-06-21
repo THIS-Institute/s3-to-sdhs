@@ -128,6 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Pycharm
+.idea/
+
 # individual development config settings
 /local/dev_config.py
 
@@ -143,3 +146,9 @@ dmypy.json
 /api/local/scratchpad.py
 
 /tests/unit_tests/test_message.mime
+
+# latex/tex files
+*.aux
+*.out
+*.synctex.gz
+
