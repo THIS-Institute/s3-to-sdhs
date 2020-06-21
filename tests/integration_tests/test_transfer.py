@@ -36,7 +36,7 @@ class TestTransfer(test_utils.BaseTestCase):
     }
 
     test_s3_files = {
-        'unit-test-data/f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4': {
+        'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4': {
             'head': {
                 'AcceptRanges': 'bytes',
                 'ContentLength': 10084809,
