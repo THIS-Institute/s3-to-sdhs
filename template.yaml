@@ -164,7 +164,6 @@ Resources:
             Bucket: !Ref InterviewAudio
             Events:
               - s3:ObjectCreated:*
-              - s3:ObjectRemoved:*
 Parameters:
   StackTagName:
     Type: String
