@@ -141,13 +141,13 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${AWS::StackName}-mockincomingbucket
-  ProcessIncoming:
+  ProcessIncomingFiles:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-ProcessIncoming
+      FunctionName: !Sub ${AWS::StackName}-ProcessIncomingFiles
       Description: !Sub
         - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
-        - ResourceName: ProcessIncoming
+        - ResourceName: ProcessIncomingFiles
       CodeUri: src
       Handler: main.process_incoming_files
       Runtime: python3.7
