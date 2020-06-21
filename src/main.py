@@ -205,7 +205,7 @@ class TransferManager:
             # s3_dirs, s3_filename = os.path.split(file_s3_key)
             # self.logger.debug('Path of s3_obj', extra={'s3_dirs': s3_dirs, 's3_filename': s3_filename})
             _, extension = os.path.splitext(file_s3_key)
-            target_filename = f'{target_basename}.{extension}'
+            target_filename = f'{target_basename}{extension}'
             with sftp.sftp_client.open(target_filename, 'wb') as sdhs_f:
                 self.s3_client.download_fileobj(s3_bucket_name, file_s3_key, sdhs_f)
         self.logger.debug(f'Completed transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})

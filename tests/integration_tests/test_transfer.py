@@ -129,7 +129,7 @@ class TestTransfer(test_utils.BaseTestCase):
             self.check_item_processing_status(k, 'audio extraction job submitted')
 
             # check item status is processed
-            sleep(10)
+            sleep(15)
             self.check_item_processing_status(k, 'processed')
 
             # cleanup
