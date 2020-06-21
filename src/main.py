@@ -18,6 +18,10 @@
 import datetime
 import json
 import os
+import paramiko
+import pysftp
+
+from base64 import decodebytes
 from http import HTTPStatus
 from pprint import pprint
 
@@ -166,6 +170,41 @@ class ProcessIncoming:
             )
 
 
+class TransferManager:
+
+    def __init__(self, logger, correlation_id=None):
+        self.logger = logger
+        self.correlation_id = correlation_id
+        self.ddb_client = Dynamodb()
+        self.media_convert_client = MediaConvertClient()
+        self.s3_client = S3Client()
+
+    def transfer_file(self, file_s3_key, s3_bucket_name=None):
+        if s3_bucket_name is None:
+            s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
+        sdhs_credentials = utils.get_secret("sdhs-connection")
+        sdhs_credentials['port'] = int(sdhs_credentials['port'])
+
+        # add host key to connection options
+        host_key_str = sdhs_credentials['hostkey']
+        host_key_bytes = bytes(host_key_str, encoding='utf-8')
+        host_key = paramiko.ECDSAKey(data=decodebytes(host_key_bytes))  # or use paramiko.RSAKey for rsa keys
+        cnopts = pysftp.CnOpts()
+        cnopts.hostkeys.add(sdhs_credentials['host'], sdhs_credentials['hostkey_type'], host_key)
+        del sdhs_credentials['hostkey']
+        del sdhs_credentials['hostkey_type']
+
+        self.logger.debug(f'Initiating transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
+        with pysftp.Connection(**sdhs_credentials, cnopts=cnopts) as sftp:
+            # todo: add a Dynamodb table to store project specific settings, such as destination folder in sdhs
+            sftp.chdir('ftpuser')  # comment this out when finished with testing
+            s3_dirs, s3_filename = os.path.split(file_s3_key)
+            self.logger.debug('Path of s3_obj', extra={'s3_dirs': s3_dirs, 's3_filename': s3_filename})
+            with sftp.sftp_client.open(s3_filename, 'wb') as sdhs_f:
+                self.s3_client.download_fileobj(s3_bucket_name, file_s3_key, sdhs_f)
+        self.logger.debug(f'Completed transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
+
+
 @utils.lambda_wrapper
 def monitor_incoming_bucket(event, context):
     logger = event['logger']
@@ -180,6 +219,17 @@ def process_incoming_files(event, context):
     correlation_id = event['correlation_id']
     processor = ProcessIncoming(logger=logger, correlation_id=correlation_id)
     processor.main()
+
+
+@utils.lambda_wrapper
+def transfer_files(event, context):
+    """
+    Triggered by S3 event when running on AWS
+    """
+    logger = event['logger']
+    correlation_id = event['correlation_id']
+    logger.debug('Event', extra={'event': event})
+    transfer_manager = TransferManager(logger, correlation_id)
 
 
 if __name__ == "__main__":
