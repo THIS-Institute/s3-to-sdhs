@@ -5,22 +5,14 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        {
-          "Version": "2012-10-17",
-          "Statement": [
-          {
-            "Effect": "Allow",
-            "Principal": {
-              "Service": [
-                "mediaconvert.amazonaws.com"
-              ]
-            },
-            "Action": [
-              "sts:AssumeRole"
-            ]
-          }
-          ]
-        }
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - mediaconvert.amazonaws.com
+            Action:
+              - sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess
@@ -30,60 +22,39 @@ Resources:
     Properties:
       Name: !Sub ${AWS::StackName}-ExtractAudioJobTemplate
       SettingsJson:
-        {
-          "OutputGroups": [
-          {
-            "Name": "File Group",
-            "Outputs": [
-            {
-              "ContainerSettings": {
-                "Container": "RAW"
-              },
-              "AudioDescriptions": [
-              {
-                "AudioTypeControl": "FOLLOW_INPUT",
-                "AudioSourceName": "Audio Selector 1",
-                "CodecSettings": {
-                  "Codec": "MP3",
-                  "Mp3Settings": {
-                    "Bitrate": 192000,
-                    "Channels": 2,
-                    "RateControlMode": "CBR",
-                    "SampleRate": 48000
-                  }
-                },
-                "LanguageCodeControl": "FOLLOW_INPUT"
-              }
-              ]
-            }
-            ],
-            "OutputGroupSettings": {
-              "Type": "FILE_GROUP_SETTINGS",
-              "FileGroupSettings": {
-                "Destination": "s3://s3-to-sdhs-test-afs25-mockincomingbucket/$fn$"
-              }
-            }
-          }
-          ],
-          "AdAvailOffset": 0,
-          "Inputs": [
-          {
-            "AudioSelectors": {
-              "Audio Selector 1": {
-                "Offset": 0,
-                "DefaultSelection": "DEFAULT",
-                "ProgramSelection": 1
-              }
-            },
-            "FilterEnable": "AUTO",
-            "PsiControl": "USE_PSI",
-            "FilterStrength": 0,
-            "DeblockFilter": "DISABLED",
-            "DenoiseFilter": "DISABLED",
-            "TimecodeSource": "EMBEDDED"
-          }
-          ]
-        }
+        OutputGroups:
+          - Name: File Group
+            Outputs:
+              - ContainerSettings:
+                  Container: RAW
+                AudioDescriptions:
+                  - AudioTypeControl: FOLLOW_INPUT
+                    AudioSourceName: Audio Selector 1
+                    CodecSettings:
+                      Codec: MP3
+                      Mp3Settings:
+                        Bitrate: 192000
+                        Channels: 2
+                        RateControlMode: CBR
+                        SampleRate: 48000
+                    LanguageCodeControl: FOLLOW_INPUT
+            OutputGroupSettings:
+              Type: FILE_GROUP_SETTINGS
+              FileGroupSettings:
+                Destination: s3://s3-to-sdhs-test-afs25-mockincomingbucket/$fn$
+        AdAvailOffset: 0
+        Inputs:
+          - AudioSelectors:
+              Audio Selector 1:
+                Offset: 0
+                DefaultSelection: DEFAULT
+                ProgramSelection: 1
+            FilterEnable: AUTO
+            PsiControl: USE_PSI
+            FilterStrength: 0
+            DeblockFilter: DISABLED
+            DenoiseFilter: DISABLED
+            TimecodeSource: EMBEDDED
   TransferFiles:
     Type: AWS::Serverless::Function
     Properties:
@@ -138,7 +109,7 @@ Resources:
         - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
         - ResourceName: MonitorIncomingBucket
       CodeUri: src
-      Handler: process_management.monitor_incoming_bucket
+      Handler: main.monitor_incoming_bucket
       Runtime: python3.7
       MemorySize: !Ref EnvConfiglambdamemorysizeAsString
       Timeout: !Ref EnvConfiglambdatimeoutAsString
@@ -146,8 +117,6 @@ Resources:
       Policies:
         - AWSXrayWriteOnlyAccess
         - AmazonS3ReadOnlyAccess
-        - S3CrudPolicy:
-            BucketName: !Ref InterviewAudio
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
         - DynamoDBCrudPolicy:
@@ -156,8 +125,6 @@ Resources:
             BucketName: !Ref MockIncomingBucket
       Environment:
         Variables:
-          BUCKET_NAME: !Ref InterviewAudio
-          BUCKET_ARN: !GetAtt InterviewAudio.Arn
           SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
           TABLE_NAME: !Ref FileTransferStatus
           TABLE_ARN: !GetAtt FileTransferStatus.Arn
@@ -174,6 +141,30 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${AWS::StackName}-mockincomingbucket
+  ProcessIncoming:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ProcessIncoming
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: ProcessIncoming
+      CodeUri: src
+      Handler: main.process_incoming_files
+      Runtime: python3.7
+      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Timeout: !Ref EnvConfiglambdatimeoutAsString
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTransferStatus
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref FileTransferStatus
+          TABLE_ARN: !GetAtt FileTransferStatus.Arn
+          SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
 Parameters:
   StackTagName:
     Type: String
