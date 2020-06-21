@@ -141,7 +141,7 @@ class IncomingMonitor:
         return files_added_to_status_table
 
 
-class TransferManager:
+class ProcessIncoming:
 
     def __init__(self, logger, correlation_id=None):
         self.logger = logger
@@ -178,7 +178,7 @@ def monitor_incoming_bucket(event, context):
 def process_interview_files(event, context):
     logger = event['logger']
     correlation_id = event['correlation_id']
-    transfer_manager = TransferManager(logger=logger, correlation_id=correlation_id)
+    transfer_manager = ProcessIncoming(logger=logger, correlation_id=correlation_id)
     transfer_manager.main()
 
 

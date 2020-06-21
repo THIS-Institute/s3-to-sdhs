@@ -25,7 +25,7 @@ from http import HTTPStatus
 import src.common.utilities as utils
 import tests.testing_utilities as test_utils
 from src.common.dynamodb_utilities import Dynamodb, STACK_NAME
-from src.process_management import IncomingMonitor, STATUS_TABLE
+from src.main import IncomingMonitor, STATUS_TABLE
 
 
 class TestMonitoring(test_utils.BaseTestCase):
