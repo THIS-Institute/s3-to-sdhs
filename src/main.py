@@ -228,8 +228,9 @@ def transfer_file(event, context):
     """
     logger = event['logger']
     correlation_id = event['correlation_id']
-    # logger.debug('Event', extra={'event': event})
-    bucket_name, s3_object = event['s3']['bucket']['name'], event['s3']['object']
+    logger.debug('Event', extra={'event': event})
+    record = event['Records'][0]['s3']
+    bucket_name, s3_object = record['bucket']['name'], record['object']
     transfer_manager = TransferManager(logger, correlation_id)
     logger.debug('Calling transfer_file', extra={'bucket_name': bucket_name, 's3_object': s3_object})
     transfer_manager.transfer_file(s3_object['key'], s3_bucket_name=bucket_name)
