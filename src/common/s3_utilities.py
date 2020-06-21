@@ -62,3 +62,22 @@ class S3Client(utils.BaseClient):
             Fileobj=file_obj,
             **kwargs
         )
+
+    def delete_objects(self, bucket, keys, **kwargs):
+        """
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.delete_objects
+
+        Args:
+            bucket:
+            keys (list): keys of objects to be deleted
+            **kwargs:
+
+        Returns:
+        """
+        return self.client.delete_objects(
+            Bucket=bucket,
+            Delete={
+                'Objects': [{'Key': x} for x in keys],
+            },
+            **kwargs
+        )

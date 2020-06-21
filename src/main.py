@@ -22,6 +22,8 @@ import paramiko
 import pysftp
 
 from base64 import decodebytes
+from datetime import timedelta
+from dateutil import parser
 from http import HTTPStatus
 from pprint import pprint
 
@@ -32,6 +34,7 @@ from common.s3_utilities import S3Client
 
 
 STATUS_TABLE = 'FileTransferStatus'
+AUDIT_TABLE = 'FileTransferAudit'
 
 
 class IncomingMonitor:
@@ -42,11 +45,6 @@ class IncomingMonitor:
         self.ddb_client = Dynamodb()
         self.s3_client = S3Client()
         self.known_files = None
-
-    def parse_s3_path(self, s3_path):
-        s3_dirs, s3_filename = os.path.split(s3_path)
-        interview_dir, file_type = s3_dirs.split('/')[-2:]
-        return s3_filename, interview_dir, file_type
 
     @staticmethod
     def get_user_id_from_core_api(email):
@@ -61,7 +59,7 @@ class IncomingMonitor:
         return json.loads(result['body'])['id']
 
     def add_new_file_to_status_table(self, s3_bucket_name, s3_path, head):
-        s3_filename, interview_dir, file_type = self.parse_s3_path(s3_path)
+        s3_filename, interview_dir, file_type = parse_s3_path(s3_path)
         metadata = head['Metadata']
         question_number = metadata.get('question_index')
         referrer_url = metadata.get('referrer')
@@ -224,6 +222,76 @@ class TransferManager:
         )
 
 
+class Cleaner:
+    def __init__(self, logger, correlation_id=None):
+        self.logger = logger
+        self.correlation_id = correlation_id
+        self.ddb_client = Dynamodb()
+        self.s3_client = S3Client()
+        self.items_to_be_deleted = None
+
+    def get_old_processed_items(self):
+        processed_items = self.ddb_client.scan(STATUS_TABLE, filter_attr_name='processing_status', filter_attr_values=['processed'])
+        # todo: refactor this to allow for a project-specific deletion schedule (using ddb table storing project parameters)
+        seven_days_ago = utils.now_with_tz() - timedelta(days=7)
+        old_proc_items = [x for x in processed_items if parser.isoparse(x['modified']) < seven_days_ago]
+        self.items_to_be_deleted = old_proc_items
+        return old_proc_items
+
+    @staticmethod
+    def resolve_s3_key_of_flac_file(video_file_key):
+        s3_filename, interview_dir, file_type = parse_s3_path(k)
+        return f'{interview_dir}/audio/{os.path.splitext(s3_filename)[0]}.flac'
+
+    def clean_incoming_bucket(self, s3_bucket_name=None):
+        if s3_bucket_name is None:
+            s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
+        item_keys = list()
+        video_keys = [x['id'] for x in self.items_to_be_deleted]
+        for k in video_keys:
+            item_keys.append(k)
+            item_keys.append(self.resolve_s3_key_of_flac_file(k))
+        response = self.s3_client.delete_objects(
+            bucket=s3_bucket_name,
+            keys=item_keys
+        )
+        return response
+
+    def clean_audio_bucket(self):
+        item_keys = [x['id'].replace('.mp4', '.mp3') for x in self.items_to_be_deleted]
+        response = self.s3_client.delete_objects(
+            bucket=f'{STACK_NAME}-{utils.get_environment_name()}-interview-audio',
+            keys=item_keys
+        )
+        return response
+
+    def move_items_to_audit_table(self):
+        audit_table = self.ddb_client.get_table(AUDIT_TABLE)
+        copy_responses = list()
+        delete_responses = list()
+        for i in self.items_to_be_deleted:
+            r = audit_table.put_item(Item=i, ConditionExpression='attribute_not_exists(id)')
+            assert r['ResponseMetadata']['HTTPStatusCode'] == HTTPStatus.OK, f"put_item operation failed with response: {r}"
+            copy_responses.append(r)
+            del_r = self.ddb_client.delete_item(STATUS_TABLE, i['id'], correlation_id=self.correlation_id)
+            assert del_r['ResponseMetadata']['HTTPStatusCode'] == HTTPStatus.OK, f"delete_item operation failed with response: {del_r}"
+            delete_responses.append(del_r)
+        return copy_responses, delete_responses
+
+    def main(self):
+        self.get_old_processed_items()
+        self.clean_incoming_bucket()
+        self.clean_audio_bucket()
+        self.move_items_to_audit_table()
+
+
+def parse_s3_path(s3_path):
+    s3_dirs, s3_filename = os.path.split(s3_path)
+    interview_dir, file_type = s3_dirs.split('/')[-2:]
+    return s3_filename, interview_dir, file_type
+
+
+
 @utils.lambda_wrapper
 def monitor_incoming_bucket(event, context):
     logger = event['logger']
@@ -253,6 +321,14 @@ def transfer_file(event, context):
     transfer_manager = TransferManager(logger, correlation_id)
     logger.debug('Calling transfer_file', extra={'bucket_name': bucket_name, 's3_object': s3_object})
     transfer_manager.transfer_file(s3_object['key'], s3_bucket_name=bucket_name)
+
+
+@utils.lambda_wrapper
+def clear_processed(event, context):
+    logger = event['logger']
+    correlation_id = event['correlation_id']
+    cleaner = Cleaner(logger, correlation_id)
+    cleaner.main()
 
 
 if __name__ == "__main__":

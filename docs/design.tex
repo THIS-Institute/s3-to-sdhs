@@ -91,6 +91,7 @@
 		
 	%% transfer
 	\node (transfer-manager) [timed-lambda, below=of status-table] {Process incoming}; 
+		\handshake{transfer-manager.north east}{status-table.south east}{update}{}{vertical}
 		\returncall{transfer-manager}{status-table}{get\\ unprocessed\\ items}{}{vertical}
 	\node (extract-audio) [resource, double copy shadow, right=of transfer-manager, xshift=2em] {MediaConvert};
 		\draw [async, ->] (transfer-manager) -- node[anchor=south] {create\\ job} (extract-audio);
