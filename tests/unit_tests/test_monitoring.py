@@ -24,7 +24,7 @@ from http import HTTPStatus
 
 import src.common.utilities as utils
 import tests.testing_utilities as test_utils
-from src.common.dynamodb_utilities import Dynamodb
+from src.common.dynamodb_utilities import Dynamodb, STACK_NAME
 from src.process_management import IncomingMonitor, STATUS_TABLE
 
 
@@ -116,9 +116,9 @@ class TestMonitoring(test_utils.BaseTestCase):
     def test_add_new_file_to_status_table(self):
         for k, v in self.test_s3_files.items():
             head = v['head']
-            result = self.monitor.add_new_file_to_status_table(k, head)
+            result = self.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
             self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])
-            self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
+            # self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
 
     def test_incoming_monitor_main(self):
         files_added_to_status_table = self.monitor.main(bucket_name='mockincomingbucket')

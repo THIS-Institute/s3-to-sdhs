@@ -17,13 +17,13 @@
 #
 import datetime
 import json
-import moviepy.editor as mp
 import os
 from http import HTTPStatus
 from pprint import pprint
 
 import common.utilities as utils
 from common.dynamodb_utilities import Dynamodb, STACK_NAME
+from common.mediaconvert_utilities import MediaConvertClient
 from common.s3_utilities import S3Client
 
 
@@ -56,7 +56,7 @@ class IncomingMonitor:
         assert result['statusCode'] == HTTPStatus.OK, f'Call to core API returned error: {result}'
         return json.loads(result['body'])['id']
 
-    def add_new_file_to_status_table(self, s3_path, head):
+    def add_new_file_to_status_table(self, s3_bucket_name, s3_path, head):
         s3_filename, interview_dir, file_type = self.parse_s3_path(s3_path)
         metadata = head['Metadata']
         question_number = metadata.get('question_index')
@@ -77,6 +77,7 @@ class IncomingMonitor:
         item = {
             'original_filename': s3_filename,
             'original_path': s3_path,
+            'source_bucket': s3_bucket_name,
             'interview_id': interview_dir,
             'target_basename': target_basename,
             'audio_extraction_attempts': 0,
@@ -119,6 +120,7 @@ class IncomingMonitor:
             s3_bucket_name = f'{STACK_NAME}-{utils.get_environment_name()}-{bucket_name}'
         else:
             s3_bucket_name = utils.get_secret("incoming-interviews-bucket", namespace_override='/prod/')['name']
+            self.s3_client = S3Client(utils.namespace2profile('/prod/'))  # use an s3_client with access to production buckets
         objs = self.s3_client.list_objects(s3_bucket_name)['Contents']
         for o in objs:
             s3_path = o['Key']
@@ -134,7 +136,7 @@ class IncomingMonitor:
                 process_file = True
 
             if process_file and s3_path not in self.known_files:
-                self.add_new_file_to_status_table(s3_path, head)
+                self.add_new_file_to_status_table(s3_bucket_name, s3_path, head)
                 files_added_to_status_table.append(s3_path)
         return files_added_to_status_table
 
@@ -145,48 +147,23 @@ class TransferManager:
         self.logger = logger
         self.correlation_id = correlation_id
         self.ddb_client = Dynamodb()
+        self.media_convert_client = MediaConvertClient()
 
     def main(self):
-        items_to_process = self.ddb_client.scan(STATUS_TABLE, filter_attr_name='processing_status', filter_attr_values=['new', 'audio extracted'])
-        self.logger.info('items_to_process', extra={'count': str(len(items_to_process))})
-        for i in items_to_process:
-            pass
-        #
-        # # note that we need to process all registrations first, then do task signups (otherwise we might try to process a signup for someone not yet registered)
-        # signup_notifications = []
-        # login_notifications = []
-        # for notification in notifications:
-        #     notification_type = notification['type']
-        #     if notification_type == NotificationType.USER_REGISTRATION.value:
-        #         process_user_registration(notification)
-        #     elif notification_type == NotificationType.TASK_SIGNUP.value:
-        #         # add to list for later processing
-        #         signup_notifications.append(notification)
-        #     elif notification_type == NotificationType.USER_LOGIN.value:
-        #         # add to list for later processing
-        #         login_notifications.append(notification)
-        #     else:
-        #         error_message = f'Processing of {notification_type} notifications not implemented yet'
-        #         logger.error(error_message)
-        #         raise NotImplementedError(error_message)
-        #
-        # for signup_notification in signup_notifications:
-        #     process_task_signup(signup_notification)
-        #
-        # for login_notification in login_notifications:
-        #     process_user_login(login_notification)
-
-
-def extract_audio(video_meta):
-    """
-    Args:
-        video_meta: Metadata of video file S3 object
-
-    Returns:
-    """
-
-    audioclip = mp.AudioFileClip(video_file)
-
+        new_items = self.ddb_client.scan(STATUS_TABLE, filter_attr_name='processing_status', filter_attr_values=['new'])
+        self.logger.info('new_items', extra={'count': str(len(new_items))})
+        for i in new_items:
+            key = i['id']
+            self.media_convert_client.create_audio_extraction_job(input_bucket_name=i["source_bucket"], input_file_s3_key=key)
+            self.ddb_client.update_item(
+                table_name=STATUS_TABLE,
+                key=key,
+                name_value_pairs={
+                    "audio_extraction_attempts": i["audio_extraction_attempts"] + 1,
+                    "processing_status": "audio extraction job submitted",
+                },
+                correlation_id=self.correlation_id
+            )
 
 
 @utils.lambda_wrapper
@@ -203,13 +180,6 @@ def process_interview_files(event, context):
     correlation_id = event['correlation_id']
     transfer_manager = TransferManager(logger=logger, correlation_id=correlation_id)
     transfer_manager.main()
-
-
-@utils.lambda_wrapper
-def extract_audio_handler(event, context):
-    logger = event['logger']
-    correlation_id = event['correlation_id']
-    extract_audio()
 
 
 if __name__ == "__main__":
