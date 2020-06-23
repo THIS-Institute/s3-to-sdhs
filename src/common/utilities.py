@@ -596,13 +596,14 @@ def get_environment_name():
 def get_secret(secret_name, namespace_override=None):
     logger = get_logger()
     # need to prepend secret name with namespace...
+    profile = None
     if namespace_override is None:
         namespace = get_aws_namespace()
-        profile = None
     else:
         namespace = namespace_override
-        from local.secrets import PROFILE_MAP
-        profile = PROFILE_MAP[namespace2name(namespace_override)]
+        if not running_on_aws():
+            from local.secrets import PROFILE_MAP
+            profile = PROFILE_MAP[namespace2name(namespace_override)]
 
     if namespace is not None:
         secret_name = namespace + secret_name
