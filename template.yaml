@@ -239,6 +239,7 @@ Resources:
           KeyType: HASH
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
+      TableName: !Sub ${AWS::StackName}-ResearchProjects
 Parameters:
   StackTagName:
     Type: String
