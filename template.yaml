@@ -94,6 +94,8 @@ Resources:
             TableName: !Ref FileTransferStatus
         - S3CrudPolicy:
             BucketName: !Ref MockIncomingBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ResearchProjects
       Environment:
         Variables:
           SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
@@ -101,6 +103,8 @@ Resources:
           TABLE_ARN: !GetAtt FileTransferStatus.Arn
           BUCKET_NAME_2: !Ref MockIncomingBucket
           BUCKET_ARN_2: !GetAtt MockIncomingBucket.Arn
+          TABLE_NAME_2: !Ref ResearchProjects
+          TABLE_ARN_2: !GetAtt ResearchProjects.Arn
       Events:
         Timer:
           Type: Schedule
@@ -223,6 +227,18 @@ Resources:
             Schedule: rate(12 hours)
           Metadata:
             StackeryName: ClearProcessedTimer
+  ResearchProjects:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
 Parameters:
   StackTagName:
     Type: String
