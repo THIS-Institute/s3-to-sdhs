@@ -104,7 +104,7 @@ class IncomingMonitor:
             self.logger.error(f'Key {s3_path} already exists in DynamoDb table', extra={'key': s3_path})
             raise
 
-    def main(self, filter_in={'ContentType': 'video/mp4'}, bucket_name=None):
+    def main(self, filter_in=None, bucket_name=None):
         """
         The main processing routine
 
