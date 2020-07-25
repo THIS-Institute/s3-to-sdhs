@@ -35,6 +35,7 @@ from common.s3_utilities import S3Client
 
 STATUS_TABLE = 'FileTransferStatus'
 AUDIT_TABLE = 'FileTransferAudit'
+PROJECTS_TABLE = 'ResearchProjects'
 
 
 class IncomingMonitor:
@@ -45,6 +46,7 @@ class IncomingMonitor:
         self.ddb_client = Dynamodb()
         self.s3_client = S3Client()
         self.known_files = None
+        self.active_projects = None
 
     @staticmethod
     def get_user_id_from_core_api(email):
@@ -58,23 +60,53 @@ class IncomingMonitor:
         assert result['statusCode'] == HTTPStatus.OK, f'Call to core API returned error: {result}'
         return json.loads(result['body'])['id']
 
+    def get_active_projects_info(self):
+        self.active_projects = self.ddb_client.scan(
+            table_name=PROJECTS_TABLE,
+            filter_attr_name="interview_task_status",
+            filter_attr_values=['active'],
+            correlation_id=self.correlation_id,
+        )
+        return self.active_projects
+
     def add_new_file_to_status_table(self, s3_bucket_name, s3_path, head):
+        if self.active_projects is None:
+            self.get_active_projects_info()
+        if not self.active_projects:
+            raise utils.ObjectDoesNotExistError(f"No research projects conducting interviews could be found in Dynamodb {PROJECTS_TABLE} table",
+                                                details={'active_projects': self.active_projects})
+
         s3_filename, interview_dir, file_type = parse_s3_path(s3_path)
         metadata = head['Metadata']
-        question_number = metadata.get('question_index')
-        referrer_url = metadata.get('referrer')
-        interview_type = 'live'
-        project = None
         user_id = self.get_user_id_from_core_api(metadata['email'])
-        if referrer_url:
-            project = referrer_url.split('/')[-1]
-            # todo: consider adding a DynamoDB table mapping project to a short identifier to use in the basename of renamed files
+        referrer_url = metadata.get('referrer')
+        project_prefix = None
 
-        if question_number:
-            interview_type = 'on_demand'
-            target_basename = f'{project}_{interview_type}_{user_id}_{question_number}'
-        else:
-            target_basename = f'{project}_{interview_type}_{user_id}'
+        if referrer_url:  # on-demand interview
+            interview_type = 'INT-O'
+            question_number = metadata['question_index']
+            for p in self.active_projects:
+                if p.get('on_demand_referrer') == referrer_url:
+                    project_prefix = p['filename_prefix']
+                    break
+            assert project_prefix, f'Referrer url {referrer_url} not found in Dynamodb table {PROJECTS_TABLE}'
+            target_basename = f'{project_prefix}_{interview_type}_{user_id}_{question_number}'
+        else:  # live interview
+            interview_type = 'INT-L'
+            interviewer = metadata['interviewer']
+            if len(self.active_projects) == 1:
+                project = self.active_projects[0]
+            else:
+                interviewer_matches = list()
+                for p in self.active_projects:
+                    if interviewer in p['interviewers'].keys():
+                        interviewer_matches.append(p)
+                assert len(interviewer_matches) == 1, f'Could not resolve project based on interviewer. Interviewer {interviewer} is taking part in ' \
+                                                      f'projects: {", ".join(map(lambda m: m["id"], interviewer_matches))}'
+                project = interviewer_matches[0]
+            project_prefix = project['filename_prefix']
+            interviewer_initials = project['interviewers'][interviewer]['initials']
+            target_basename = f'{project_prefix}_{interview_type}_{interviewer_initials}_{user_id}'
 
         item = {
             'original_filename': s3_filename,
@@ -104,14 +136,12 @@ class IncomingMonitor:
             self.logger.error(f'Key {s3_path} already exists in DynamoDb table', extra={'key': s3_path})
             raise
 
-    def main(self, filter_in=None, bucket_name=None):
+    def main(self, ignore_extensions=['.mp3', '.flac'], bucket_name=None):
         """
         The main processing routine
 
         Args:
-            filter_in (dict): attributes names and values to be checked in s3_object header (metadata);
-                       objects matching any of the set filters will be returned (OR match)
-                       set this to None if no filter is to be applied
+            ignore_extensions (list): list of file extensions to ignore
             bucket_name (str): specify a different target bucket; used for testing
 
         Returns:
@@ -122,24 +152,17 @@ class IncomingMonitor:
             s3_bucket_name = f'{STACK_NAME}-{utils.get_environment_name()}-{bucket_name}'
         else:
             s3_bucket_name = utils.get_secret("incoming-interviews-bucket", namespace_override='/prod/')['name']
-            self.s3_client = S3Client(utils.namespace2profile('/prod/'))  # use an s3_client with access to production buckets
+            # # the approach in the line below does not work on AWS; use a S3 bucket policy to allow access from this lambda instead.
+            # self.s3_client = S3Client(utils.namespace2profile('/prod/'))  # use an s3_client with access to production buckets
         objs = self.s3_client.list_objects(s3_bucket_name)['Contents']
         for o in objs:
             s3_path = o['Key']
-            process_file = False
-            head = self.s3_client.head_object(s3_bucket_name, s3_path)
-
-            try:
-                for k, v in filter_in.items():
-                    if head[k] == v:
-                        process_file = True
-            except AttributeError:
-                # no filter applied
-                process_file = True
-
-            if process_file and s3_path not in self.known_files:
-                self.add_new_file_to_status_table(s3_bucket_name, s3_path, head)
-                files_added_to_status_table.append(s3_path)
+            _, extension = os.path.splitext(s3_path)
+            if s3_path not in self.known_files:
+                if extension not in ignore_extensions:
+                    head = self.s3_client.head_object(s3_bucket_name, s3_path)
+                    self.add_new_file_to_status_table(s3_bucket_name, s3_path, head)
+                    files_added_to_status_table.append(s3_path)
         return files_added_to_status_table
 
 
@@ -289,7 +312,6 @@ def parse_s3_path(s3_path):
     s3_dirs, s3_filename = os.path.split(s3_path)
     interview_dir, file_type = s3_dirs.split('/')[-2:]
     return s3_filename, interview_dir, file_type
-
 
 
 @utils.lambda_wrapper

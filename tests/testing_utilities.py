@@ -20,7 +20,9 @@ import os
 import unittest
 
 import src.common.utilities as utils
-from local.dev_config import TEST_ON_AWS
+from local.dev_config import TEST_ON_AWS, DELETE_TEST_DATA
+from src.common.dynamodb_utilities import Dynamodb
+from src.main import PROJECTS_TABLE, STATUS_TABLE
 
 
 def tests_running_on_aws():
@@ -53,6 +55,63 @@ class BaseTestCase(unittest.TestCase):
     def tearDownClass(cls):
         cls.secrets_client.create_or_update_secret('runtime-parameters', {'running-tests': 'false'})
         utils.set_running_unit_tests(False)
+
+
+class SdhsTransferTestCase(BaseTestCase):
+    test_projects = {
+        "unittest-1": {
+            "filename_prefix": "IGNORE-this-test-file",
+            "interview_task_status": "active",
+            "interviewers": {
+                "OliverT": {
+                    "initials": "OT",
+                    "name": "Oliver Twist"
+                },
+                "Karolina K": {
+                    "initials": "KK",
+                    "name": "Karolina Kurts"
+                },
+                "Brandon": {
+                    "initials": "BC",
+                    "name": "Brandon Cabrera"
+                },
+                "THIS Institute": {
+                    "initials": "ES",
+                    "name": "Emiliano Smartparrot"
+                },
+            },
+            "live_interviews": "true",
+            "on_demand_interviews": "true",
+            "on_demand_referrer": "https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-1",
+            "sdhs_in_folder": "S0200-UnitTest-In"
+        }
+    }
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.ddb_client = Dynamodb()
+        cls.ddb_client.delete_all(STATUS_TABLE)
+        for k, v in cls.test_projects.items():
+            cls.ddb_client.put_item(
+                table_name=PROJECTS_TABLE,
+                key=k,
+                item_type='test_project',
+                item_details=None,
+                item=v,
+                update_allowed=True,
+            )
+
+    @classmethod
+    def tearDownClass(cls):
+        if DELETE_TEST_DATA:
+            for k, _ in cls.test_projects.items():
+                cls.ddb_client.delete_item(
+                    table_name=PROJECTS_TABLE,
+                    key=k
+                )
+            cls.ddb_client.delete_all(STATUS_TABLE)
+        super().tearDownClass()
 
 
 @unittest.skipIf(not tests_running_on_aws(), "Testing are using local methods and this test only makes sense if calling an AWS API endpoint")

@@ -22,7 +22,10 @@ from src.common.dynamodb_utilities import STACK_NAME
 from src.common.s3_utilities import S3Client
 
 TEST_FILES = [
-    'unit-test-data/f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
+    # 'unit-test-data/f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
+    # 'unit-test-data/f21d28a7-d3a5-42bf-8771-5d205ab67dcb/audio/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.flac',
+    # 'unit-test-data/f21d28a7-d3a5-42bf-8771-5d205ab67dcb/audio/b1175609-3d59-4936-ad50-05ecf65ed32e.flac',
+    # 'unit-test-data/bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
 ]
 
 
