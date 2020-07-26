@@ -15,6 +15,7 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
+import copy
 import datetime
 import json
 import unittest
@@ -52,7 +53,7 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
         ]
         for k in keys:
             v = td.test_s3_files[k]
-            head = v['head']
+            head = copy.deepcopy(v['head'])
             result = self.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
             self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])
             self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)

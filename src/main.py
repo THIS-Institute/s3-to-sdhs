@@ -122,7 +122,7 @@ class IncomingMonitor:
             'sdhs_transfer_attempts': 0,
             'processing_status': 'new',
         }
-        head['uploaded_to_s3'] = str(head['LastModified'])
+        head['uploaded_to_s3'] = str(head.get('LastModified'))
         del head['LastModified']
         try:
             self.logger.debug('Adding item to FileTransferStatus table', extra={'item': item})
@@ -181,10 +181,11 @@ class ProcessIncoming:
     def main(self):
         new_items = self.ddb_client.scan(STATUS_TABLE, filter_attr_name='processing_status', filter_attr_values=['new'])
         self.logger.info('new_items', extra={'count': str(len(new_items))})
+        responses = list()
         for i in new_items:
             key = i['id']
-            self.media_convert_client.create_audio_extraction_job(input_bucket_name=i["source_bucket"], input_file_s3_key=key)
-            self.ddb_client.update_item(
+            media_convert_response = self.media_convert_client.create_audio_extraction_job(input_bucket_name=i["source_bucket"], input_file_s3_key=key)
+            ddb_response = self.ddb_client.update_item(
                 table_name=STATUS_TABLE,
                 key=key,
                 name_value_pairs={
@@ -193,6 +194,8 @@ class ProcessIncoming:
                 },
                 correlation_id=self.correlation_id
             )
+            responses.append((media_convert_response, ddb_response))
+        return responses
 
 
 class TransferManager:

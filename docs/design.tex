@@ -100,7 +100,7 @@
 		\returncall{transfer-manager}{status-table}{get\\ unprocessed\\ items}{}{vertical}
 	
 	%% MediaConvert
-	\node (extract-audio) [resource, double copy shadow, right=of transfer-manager, xshift=5em] {MediaConvert};
+	\node (extract-audio) [resource, double copy shadow, right=of transfer-manager, xshift=5em] {\textbf{MediaConvert}};
 		\draw [async, ->] (transfer-manager) -- node[anchor=south] {create\\ job} (extract-audio);
 		% incoming
 		\draw [sync, ->] ($(extract-audio.north east) + (-1.5em, 0)$) |- node[pos=0.23, anchor=east]{get\\ mp4 file} ($(incoming.east) - (0, 0.5em)$);	
@@ -112,12 +112,18 @@
 	%% SDHS transfer
 	\node (sdhs-transfer) [lambda, double copy shadow, below=of transfer-manager] {SDHS transfer};
 		\coordinate (A) at ($(transfer-manager.west) - (1.5cm,0)$);  
-		\draw [sync, ->] ($(sdhs-transfer.west) - (0, 0.5em)$) -| ($(A) - (1.5em,0)$) |- node[pos=0, anchor=east]{update} ($(status-table.west) - (0, 0.5em)$);
-		\draw [sync, <-, dashed] ($(sdhs-transfer.west) + (0, 0.5em)$) -| ($(A) - (0.5em,0)$) |- ($(status-table.west) - (0, 1.5em)$);
-	
+		\draw [sync, ->] ($(sdhs-transfer.west) - (0, 0)$) -| ($(A) - (1.5em,0)$) |- node[pos=0, anchor=east]{update} ($(status-table.west) - (0, 0.5em)$);
+		\draw [sync, <-, dashed] ($(sdhs-transfer.west) + (0, 1em)$) -| ($(A) - (0.5em,0)$) |- ($(status-table.west) - (0, 1.5em)$);
+		
 	%% SDHS
 	\node (sdhs) [ext-storage, below=of sdhs-transfer] {SDHS};
 		\handshake{sdhs-transfer}{sdhs}{mp3 file}{}{vertical}
+	
+		%% SecretsManager
+	\node (secrets-manager) [resource, left=of sdhs] {\textbf{Secrets Manager}};
+		\draw [sync, ->] ($(sdhs-transfer.south west) + (0, 1em)$) -- node[above, sloped]{get params} (secrets-manager.55);
+		\draw [sync, <-] ($(sdhs-transfer.south west) - (0, 0)$) -- ($(secrets-manager.55) + (1.25em, 0)$);
+		
 	
 	%% MP3 files
 	\node (audio-bucket) [bucket, below=of extract-audio] {Mp3 files};
@@ -127,7 +133,7 @@
 		\draw[trigger, ->](audio-bucket)--(sdhs-transfer);
 		
 	%% clearing
-	\node (clear-processed) [timed-lambda, left=of monitor] {Clear processed};
+	\node (clear-processed) [timed-lambda, left=of monitor, xshift=-5em] {Clear processed};
 		\draw [sync, ->] ($(clear-processed.south east) + (0, 0.5em)$) -- node[above, sloped]{delete items} (status-table.145);
 		\draw [sync, <-, dashed] ($(clear-processed.south east) - (0.75em, 0)$) -- ($(status-table.145) - (1.25em, 0)$);
 		
