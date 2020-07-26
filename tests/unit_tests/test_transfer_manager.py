@@ -39,8 +39,8 @@ class TestTransferManager(test_utils.BaseTestCase):
         cls.transfer_manager = TransferManager(utils.get_logger())
 
     def test_get_target_basename(self):
-        target_basename = self.transfer_manager.get_target_basename(list(td.test_s3_files.keys())[0])
+        target_basename = self.transfer_manager.get_item_status('f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4')
         self.assertEqual(
-            td.test_s3_files['f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4']['target_basename'],
+            td.test_s3_files['f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4']['expected_target_basename'],
             target_basename
         )

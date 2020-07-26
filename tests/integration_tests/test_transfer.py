@@ -48,20 +48,23 @@ class TestTransfer(test_utils.SdhsTransferTestCase):
         self.assertEqual(expected_status, item['processing_status'])
 
     def test_transfer(self):
-        for k, v in td.test_s3_files.items():
-            # add to status table
-            self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
-            head = v['head']
-            result = self.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
-            self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])
+        expected_result = [
+            'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
+            'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
+        ]
+        files_added_to_status_table = self.monitor.main(bucket_name=f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket')
+        self.assertEqual(expected_result, files_added_to_status_table)
 
-            # process added item
-            self.incoming_processor.main()
+        # create MediaConvert jobs
+        self.incoming_processor.main()
+        for k in expected_result:
             self.check_item_processing_status(k, 'audio extraction job submitted')
 
-            # check item status is processed
-            sleep(15)
+        # check item status is processed (s3 event will trigger transfer, so no need to call transfer process here).
+        sleep(15)
+        for k in expected_result:
             self.check_item_processing_status(k, 'processed')
 
-            # cleanup
+        # cleanup
+        for k in expected_result:
             self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)

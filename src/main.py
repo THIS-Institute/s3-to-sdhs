@@ -80,6 +80,7 @@ class IncomingMonitor:
         metadata = head['Metadata']
         user_id = self.get_user_id_from_core_api(metadata['email'])
         referrer_url = metadata.get('referrer')
+        project_id = None
         project_prefix = None
 
         if referrer_url:  # on-demand interview
@@ -87,6 +88,7 @@ class IncomingMonitor:
             question_number = metadata['question_index']
             for p in self.active_projects:
                 if p.get('on_demand_referrer') == referrer_url:
+                    project_id = p['id']
                     project_prefix = p['filename_prefix']
                     break
             assert project_prefix, f'Referrer url {referrer_url} not found in Dynamodb table {PROJECTS_TABLE}'
@@ -104,6 +106,7 @@ class IncomingMonitor:
                 assert len(interviewer_matches) == 1, f'Could not resolve project based on interviewer. Interviewer {interviewer} is taking part in ' \
                                                       f'projects: {", ".join(map(lambda m: m["id"], interviewer_matches))}'
                 project = interviewer_matches[0]
+            project_id = project['id']
             project_prefix = project['filename_prefix']
             interviewer_initials = project['interviewers'][interviewer]['initials']
             target_basename = f'{project_prefix}_{interview_type}_{interviewer_initials}_{user_id}'
@@ -113,6 +116,7 @@ class IncomingMonitor:
             'original_path': s3_path,
             'source_bucket': s3_bucket_name,
             'interview_id': interview_dir,
+            'project_id': project_id,
             'target_basename': target_basename,
             'audio_extraction_attempts': 0,
             'sdhs_transfer_attempts': 0,
@@ -199,21 +203,40 @@ class TransferManager:
         self.ddb_client = Dynamodb()
         self.s3_client = S3Client()
 
-    def get_target_basename(self, status_table_key):
-        return self.ddb_client.get_item(STATUS_TABLE, status_table_key)['target_basename']
+    def get_item_status(self, status_table_key):
+        return self.ddb_client.get_item(STATUS_TABLE, status_table_key)
 
     def transfer_file(self, file_s3_key, s3_bucket_name=None):
         status_table_key = f'{os.path.splitext(file_s3_key)[0]}.mp4'
-        target_basename = self.get_target_basename(status_table_key)
+        item_status = self.get_item_status(status_table_key)
+        project_id = item_status['project_id']
+        target_basename = item_status['target_basename']
         if s3_bucket_name is None:
             s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
-        sdhs_credentials = utils.get_secret("sdhs-connection")
-        sdhs_credentials['port'] = int(sdhs_credentials['port'])
+        sdhs_secret = utils.get_secret("sdhs-connection")
+        project_params = sdhs_secret['project_specific_parameters'].get(project_id)
+        if project_params is None:
+            raise utils.ObjectDoesNotExistError(f'Could not find SDHS parameters for project', details={'project_id': project_id,
+                                                                                                        'correlation_id': self.correlation_id})
+        target_folder = project_params['folder']
+        sdhs_credentials = dict()
+        for param_name in ['host', 'port', 'hostkey', 'hostkey_type', 'username', 'password']:
+            param_value = project_params.get(param_name)
+            if param_value:
+                sdhs_credentials[param_name] = param_value
+            else:
+                sdhs_credentials[param_name] = sdhs_secret.get(param_name)
 
+        sdhs_credentials['port'] = int(sdhs_credentials['port'])
         # add host key to connection options
         host_key_str = sdhs_credentials['hostkey']
         host_key_bytes = bytes(host_key_str, encoding='utf-8')
-        host_key = paramiko.ECDSAKey(data=decodebytes(host_key_bytes))  # or use paramiko.RSAKey for rsa keys
+        if sdhs_credentials['hostkey_type'] == 'ecdsa-sha2-nistp256':
+            host_key = paramiko.ECDSAKey(data=decodebytes(host_key_bytes))
+        if sdhs_credentials['hostkey_type'] == 'ssh-rsa':
+            host_key = paramiko.RSAKey(data=decodebytes(host_key_bytes))
+        else:
+            raise NotImplementedError(f'hostkey_type {sdhs_credentials["hostkey_type"]} not supported')
         cnopts = pysftp.CnOpts()
         cnopts.hostkeys.add(sdhs_credentials['host'], sdhs_credentials['hostkey_type'], host_key)
         del sdhs_credentials['hostkey']
@@ -221,8 +244,7 @@ class TransferManager:
 
         self.logger.debug(f'Initiating transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
         with pysftp.Connection(**sdhs_credentials, cnopts=cnopts) as sftp:
-            # todo: add a Dynamodb table to store project specific settings, such as destination folder in sdhs
-            sftp.chdir('ftpuser')  # comment this out when finished with testing
+            sftp.chdir(target_folder)
             # s3_dirs, s3_filename = os.path.split(file_s3_key)
             # self.logger.debug('Path of s3_obj', extra={'s3_dirs': s3_dirs, 's3_filename': s3_filename})
             _, extension = os.path.splitext(file_s3_key)
