@@ -206,6 +206,38 @@ class TransferManager:
     def get_item_status(self, status_table_key):
         return self.ddb_client.get_item(STATUS_TABLE, status_table_key)
 
+    def get_sftp_parameters(self, project_id):
+        sdhs_secret = utils.get_secret("sdhs-connection")
+        project_params = sdhs_secret['project_specific_parameters'].get(project_id)
+        if project_params is None:
+            raise utils.ObjectDoesNotExistError(f'Could not find SDHS parameters for project', details={'project_id': project_id,
+                                                                                                        'correlation_id': self.correlation_id})
+        target_folder = project_params['folder']
+        sdhs_params = dict()
+        for param_name in ['host', 'port', 'hostkey', 'hostkey_type', 'username', 'password']:
+            param_value = project_params.get(param_name)
+            if param_value:
+                sdhs_params[param_name] = param_value
+            else:
+                sdhs_params[param_name] = sdhs_secret.get(param_name)
+
+        sdhs_params['port'] = int(sdhs_params['port'])
+        # add host key to connection options
+        host_key_str = sdhs_params['hostkey']
+        host_key_bytes = bytes(host_key_str, encoding='utf-8')
+        key_type = sdhs_params['hostkey_type']
+        if key_type == 'ecdsa-sha2-nistp256':
+            host_key = paramiko.ECDSAKey(data=decodebytes(host_key_bytes))
+        elif key_type == 'ssh-rsa':
+            host_key = paramiko.RSAKey(data=decodebytes(host_key_bytes))
+        else:
+            raise NotImplementedError(f'hostkey_type {key_type} not supported')
+        cnopts = pysftp.CnOpts()
+        cnopts.hostkeys.add(sdhs_params['host'], sdhs_params['hostkey_type'], host_key)
+        del sdhs_params['hostkey']
+        del sdhs_params['hostkey_type']
+        return sdhs_params, target_folder, cnopts
+
     def transfer_file(self, file_s3_key, s3_bucket_name=None):
         status_table_key = f'{os.path.splitext(file_s3_key)[0]}.mp4'
         item_status = self.get_item_status(status_table_key)
@@ -213,37 +245,11 @@ class TransferManager:
         target_basename = item_status['target_basename']
         if s3_bucket_name is None:
             s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
-        sdhs_secret = utils.get_secret("sdhs-connection")
-        project_params = sdhs_secret['project_specific_parameters'].get(project_id)
-        if project_params is None:
-            raise utils.ObjectDoesNotExistError(f'Could not find SDHS parameters for project', details={'project_id': project_id,
-                                                                                                        'correlation_id': self.correlation_id})
-        target_folder = project_params['folder']
-        sdhs_credentials = dict()
-        for param_name in ['host', 'port', 'hostkey', 'hostkey_type', 'username', 'password']:
-            param_value = project_params.get(param_name)
-            if param_value:
-                sdhs_credentials[param_name] = param_value
-            else:
-                sdhs_credentials[param_name] = sdhs_secret.get(param_name)
 
-        sdhs_credentials['port'] = int(sdhs_credentials['port'])
-        # add host key to connection options
-        host_key_str = sdhs_credentials['hostkey']
-        host_key_bytes = bytes(host_key_str, encoding='utf-8')
-        if sdhs_credentials['hostkey_type'] == 'ecdsa-sha2-nistp256':
-            host_key = paramiko.ECDSAKey(data=decodebytes(host_key_bytes))
-        if sdhs_credentials['hostkey_type'] == 'ssh-rsa':
-            host_key = paramiko.RSAKey(data=decodebytes(host_key_bytes))
-        else:
-            raise NotImplementedError(f'hostkey_type {sdhs_credentials["hostkey_type"]} not supported')
-        cnopts = pysftp.CnOpts()
-        cnopts.hostkeys.add(sdhs_credentials['host'], sdhs_credentials['hostkey_type'], host_key)
-        del sdhs_credentials['hostkey']
-        del sdhs_credentials['hostkey_type']
+        sdhs_params, target_folder, cnopts = self.get_sftp_parameters(project_id)
 
         self.logger.debug(f'Initiating transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
-        with pysftp.Connection(**sdhs_credentials, cnopts=cnopts) as sftp:
+        with pysftp.Connection(**sdhs_params, cnopts=cnopts) as sftp:
             sftp.chdir(target_folder)
             # s3_dirs, s3_filename = os.path.split(file_s3_key)
             # self.logger.debug('Path of s3_obj', extra={'s3_dirs': s3_dirs, 's3_filename': s3_filename})

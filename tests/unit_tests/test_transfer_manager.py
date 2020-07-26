@@ -45,3 +45,9 @@ class TestTransferManager(test_utils.BaseTestCase):
             td.test_s3_files['f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4']['expected_target_basename'],
             target_basename
         )
+
+    def test_get_sftp_parameters(self):
+        sdhs_params, target_folder, cnopts = self.transfer_manager.get_sftp_parameters('unittest-1')
+        self.assertEqual('ftpuser', target_folder)
+        self.assertEqual('ftpuser', sdhs_params['username'])
+        self.assertCountEqual(['username', 'password', 'host', 'port'], sdhs_params.keys())
