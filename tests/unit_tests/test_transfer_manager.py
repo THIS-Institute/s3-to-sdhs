@@ -51,3 +51,11 @@ class TestTransferManager(test_utils.BaseTestCase):
         self.assertEqual('ftpuser', target_folder)
         self.assertEqual('ftpuser', sdhs_params['username'])
         self.assertCountEqual(['username', 'password', 'host', 'port'], sdhs_params.keys())
+
+    def test_update_status_of_processed_item(self):
+        key = 'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4'
+        r = self.ddb_client.update_item(STATUS_TABLE, key, {'processing_status': 'audio extraction job submitted'})
+        self.assertEqual(HTTPStatus.OK, r['ResponseMetadata']['HTTPStatusCode'])
+        item = self.transfer_manager.get_item_and_validate_status(key)
+        result = self.transfer_manager.update_status_of_processed_item(item, key)
+        self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])
