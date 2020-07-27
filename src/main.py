@@ -255,14 +255,11 @@ class TransferManager:
         assert item_status == 'audio extraction job submitted', f'Item processing_status is {item_status}. Expected "audio extraction job submitted"'
         return item
 
-    def transfer_file(self, file_s3_key, s3_bucket_name=None):
+    def transfer_file(self, file_s3_key, s3_bucket_name):
         status_table_key = f'{os.path.splitext(file_s3_key)[0]}.mp4'
         item = self.get_item_and_validate_status(status_table_key)
         project_id = item['project_id']
         target_basename = item['target_basename']
-        if s3_bucket_name is None:
-            s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
-
         sdhs_params, target_folder, cnopts = self.get_sftp_parameters(project_id)
 
         self.logger.debug(f'Initiating transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
@@ -276,7 +273,7 @@ class TransferManager:
                 self.s3_client.download_fileobj(s3_bucket_name, file_s3_key, sdhs_f)
         self.logger.debug(f'Completed transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
 
-        self.update_status_of_processed_item(item, status_table_key)
+        return self.update_status_of_processed_item(item, status_table_key)
 
 
 class Cleaner:

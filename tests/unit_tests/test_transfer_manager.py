@@ -30,13 +30,23 @@ from src.common.dynamodb_utilities import Dynamodb, STACK_NAME
 from src.main import TransferManager, STATUS_TABLE
 
 
-class TestTransferManager(test_utils.BaseTestCase):
+class TestTransferManager(test_utils.SdhsTransferTestCase):
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        super().populate_status_table()
         cls.ddb_client = Dynamodb()
         cls.transfer_manager = TransferManager(utils.get_logger())
+
+    def mark_audio_extraction_submitted(self, key):
+        self.ddb_client.update_item(
+            table_name=STATUS_TABLE,
+            key=key,
+            name_value_pairs={
+                "processing_status": "audio extraction job submitted",
+            },
+        )
 
     def test_get_target_basename(self):
         target_basename = self.transfer_manager.get_item_and_validate_status('f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/'
@@ -59,3 +69,14 @@ class TestTransferManager(test_utils.BaseTestCase):
         item = self.transfer_manager.get_item_and_validate_status(key)
         result = self.transfer_manager.update_status_of_processed_item(item, key)
         self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])
+
+    def test_transfer_file(self):
+        file_keys = [
+            'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp3',
+            'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp3',
+        ]
+        bucket_name = f'{STACK_NAME}-{utils.get_environment_name()}-interview-audio'
+        for k in file_keys:
+            self.mark_audio_extraction_submitted(k.replace('.mp3', '.mp4'))
+            result = self.transfer_manager.transfer_file(k, bucket_name)
+            self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])

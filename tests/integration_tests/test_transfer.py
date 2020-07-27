@@ -52,8 +52,8 @@ class TestTransfer(test_utils.SdhsTransferTestCase):
             'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
             'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
         ]
-        files_added_to_status_table = self.monitor.main(bucket_name=f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket')
-        self.assertEqual(expected_result, files_added_to_status_table)
+        files_added_to_status_table = self.monitor.main(bucket_name='mockincomingbucket')
+        self.assertCountEqual(expected_result, files_added_to_status_table)
 
         # create MediaConvert jobs
         self.incoming_processor.main()

@@ -15,14 +15,15 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
-
+import copy
 import os
 import unittest
 
 import src.common.utilities as utils
+import tests.test_data as td
 from local.dev_config import TEST_ON_AWS, DELETE_TEST_DATA
-from src.common.dynamodb_utilities import Dynamodb
-from src.main import PROJECTS_TABLE, STATUS_TABLE
+from src.common.dynamodb_utilities import Dynamodb, STACK_NAME
+from src.main import PROJECTS_TABLE, STATUS_TABLE, IncomingMonitor
 
 
 def tests_running_on_aws():
@@ -59,7 +60,8 @@ class BaseTestCase(unittest.TestCase):
 
 class SdhsTransferTestCase(BaseTestCase):
     test_projects = {
-        "unittest-1": {
+        # "unittest-1": {
+        "efi": {
             "filename_prefix": "IGNORE-this-test-file",
             "interview_task_status": "active",
             "interviewers": {
@@ -83,7 +85,6 @@ class SdhsTransferTestCase(BaseTestCase):
             "live_interviews": "true",
             "on_demand_interviews": "true",
             "on_demand_referrer": "https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-1",
-            "sdhs_in_folder": "S0200-UnitTest-In"
         }
     }
 
@@ -112,6 +113,19 @@ class SdhsTransferTestCase(BaseTestCase):
                 )
             cls.ddb_client.delete_all(STATUS_TABLE)
         super().tearDownClass()
+
+    @classmethod
+    def populate_status_table(cls):
+        keys = [
+            'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
+            'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
+        ]
+        cls.monitor = IncomingMonitor(utils.get_logger())
+        for k in keys:
+            v = td.test_s3_files[k]
+            head = copy.deepcopy(v['head'])
+            cls.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
+
 
 
 @unittest.skipIf(not tests_running_on_aws(), "Testing are using local methods and this test only makes sense if calling an AWS API endpoint")
