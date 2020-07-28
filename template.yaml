@@ -1,6 +1,18 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
 Resources:
+  PassMediaConvertRolePermission:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - iam:GetRole
+              - iam:PassRole
+            Resource: arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
+      PolicyName: Pass_MediaConvert_Default_Role_Permission
   MediaConvertRole:
     Type: AWS::IAM::Role
     Properties:
