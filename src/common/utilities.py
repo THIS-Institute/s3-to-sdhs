@@ -208,18 +208,18 @@ def now_with_tz():
 #     except ValueError:
 #         errorjson = {'int': s}
 #         raise DetailedValueError('invalid integer', errorjson)
-#
-#
-# def validate_uuid(s):
-#     try:
-#         uuid.UUID(s, version=4)
-#         if uuid.UUID(s).version != 4:
-#             errorjson = {'uuid': s}
-#             raise DetailedValueError('uuid is not version 4', errorjson)
-#         return s
-#     except ValueError:
-#         errorjson = {'uuid': s}
-#         raise DetailedValueError('invalid uuid', errorjson)
+
+
+def validate_uuid(s):
+    try:
+        uuid.UUID(s, version=4)
+        if uuid.UUID(s).version != 4:
+            errorjson = {'uuid': s}
+            raise DetailedValueError('uuid is not version 4', errorjson)
+        return s
+    except ValueError:
+        errorjson = {'uuid': s}
+        raise DetailedValueError('invalid uuid', errorjson)
 #
 #
 # def validate_utc_datetime(s):

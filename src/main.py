@@ -162,13 +162,20 @@ class IncomingMonitor:
         objs = self.s3_client.list_objects(s3_bucket_name)['Contents']
         for o in objs:
             s3_path = o['Key']
-            if not s3_path.split('/')[0] == 'unit-test-data':
-                if s3_path not in self.known_files:
-                    _, extension = os.path.splitext(s3_path)
-                    if extension not in ignore_extensions:
-                        head = self.s3_client.head_object(s3_bucket_name, s3_path)
-                        self.add_new_file_to_status_table(s3_bucket_name, s3_path, head)
-                        files_added_to_status_table.append(s3_path)
+            folder = s3_path.split('/')[0]
+
+            # skip anything that is not in a uuid-named folder
+            try:
+                utils.validate_uuid(folder)
+            except utils.DetailedValueError:
+                continue
+
+            if s3_path not in self.known_files:
+                _, extension = os.path.splitext(s3_path)
+                if extension not in ignore_extensions:
+                    head = self.s3_client.head_object(s3_bucket_name, s3_path)
+                    self.add_new_file_to_status_table(s3_bucket_name, s3_path, head)
+                    files_added_to_status_table.append(s3_path)
         return files_added_to_status_table
 
 
