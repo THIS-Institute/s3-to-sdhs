@@ -76,6 +76,7 @@ class IncomingMonitor:
             raise utils.ObjectDoesNotExistError(f"No research projects conducting interviews could be found in Dynamodb {PROJECTS_TABLE} table",
                                                 details={'active_projects': self.active_projects})
 
+        self.logger.debug('Path of S3 file', extra={'s3_path': s3_path, 's3_bucket_name': s3_bucket_name})
         s3_filename, interview_dir, file_type = parse_s3_path(s3_path)
         metadata = head['Metadata']
         user_id = self.get_user_id_from_core_api(metadata['email'])
