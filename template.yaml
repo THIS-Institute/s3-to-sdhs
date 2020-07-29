@@ -12,8 +12,8 @@ Resources:
               - iam:GetRole
               - iam:PassRole
             Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
-      Roles: !Sub
-        - s3-to-sdhs-${EnvironmentTagName}-ProcessIncomingFilesRole-1MHB83S4OT0AK
+      Roles:
+        - s3-to-sdhs-prod-ProcessIncomingFilesRole-1MHB83S4OT0AK
       PolicyName: Pass_MediaConvert_Default_Role_Permission
   MediaConvertRole:
     Type: AWS::IAM::Role
