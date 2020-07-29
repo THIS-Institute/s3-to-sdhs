@@ -130,21 +130,21 @@ Resources:
               - sts:AssumeRole
       Policies:
         - PolicyName: CreateMediaConvertJob
-            PolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                - Effect: Allow
-                  Action: mediaconvert:CreateJob
-                  Resource: *
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: mediaconvert:CreateJob
+                Resource: *
         - PolicyName: PassMediaConvertRole
-            PolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - iam:GetRole
-                    - iam:PassRole
-                  Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:GetRole
+                  - iam:PassRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
       RoleName: !Sub ${AWS::StackName}-${AWS::Region}-${ResourceName}
   ProcessIncomingFiles:
     Type: AWS::Serverless::Function
