@@ -116,19 +116,25 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${AWS::StackName}-mockincomingbucket
-  ProcessIncomingFilesExecutionRole:
-    Type: AWS::IAM::Role
+  ProcessIncomingFiles:
+    Type: AWS::Serverless::Function
     Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action:
-              - sts:AssumeRole
+      FunctionName: !Sub ${AWS::StackName}-ProcessIncomingFiles
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: ProcessIncomingFiles
+      CodeUri: src
+      Handler: main.process_incoming_files
+      Runtime: python3.7
+      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Timeout: !Ref EnvConfiglambdatimeoutAsString
+      Tracing: Active
       Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTransferStatus
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
         - PolicyName: CreateMediaConvertJob
           PolicyDocument:
             Version: 2012-10-17
@@ -145,27 +151,6 @@ Resources:
                   - iam:GetRole
                   - iam:PassRole
                 Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
-      RoleName: !Sub ${AWS::StackName}-${AWS::Region}-ProcessIncomingFilesExecutionRole
-  ProcessIncomingFiles:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub ${AWS::StackName}-ProcessIncomingFiles
-      Description: !Sub
-        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
-        - ResourceName: ProcessIncomingFiles
-      CodeUri: src
-      Handler: main.process_incoming_files
-      Runtime: python3.7
-      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
-      Timeout: !Ref EnvConfiglambdatimeoutAsString
-      Tracing: Active
-      Role: !GetAtt ProcessIncomingFilesExecutionRole.Arn
-      Policies:
-        - AWSXrayWriteOnlyAccess
-        - DynamoDBCrudPolicy:
-            TableName: !Ref FileTransferStatus
-        - AWSSecretsManagerGetSecretValuePolicy:
-            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
       Environment:
         Variables:
           TABLE_NAME: !Ref FileTransferStatus
