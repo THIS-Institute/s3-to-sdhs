@@ -135,22 +135,18 @@ Resources:
             TableName: !Ref FileTransferStatus
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
-        - PolicyName: CreateMediaConvertJob
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action: mediaconvert:CreateJob
-                Resource: '*'
-        - PolicyName: PassMediaConvertRole
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - iam:GetRole
-                  - iam:PassRole
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
+        - Statement:
+          - Sid: MediaconvertCreateJob
+            Effect: Allow
+            Action:
+              - mediaconvert:CreateJob
+            Resource: '*'
+          - Sid: PassMediaConvertRole
+            Effect: Allow
+            Action:
+              - iam:GetRole
+              - iam:PassRole
+            Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
       Environment:
         Variables:
           TABLE_NAME: !Ref FileTransferStatus
