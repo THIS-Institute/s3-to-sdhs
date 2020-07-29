@@ -145,7 +145,7 @@ Resources:
                   - iam:GetRole
                   - iam:PassRole
                 Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
-      RoleName: !Sub ${AWS::StackName}-${AWS::Region}-${ResourceName}
+      RoleName: !Sub ${AWS::StackName}-${AWS::Region}-ProcessIncomingFilesExecutionRole
   ProcessIncomingFiles:
     Type: AWS::Serverless::Function
     Properties:
