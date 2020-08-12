@@ -172,7 +172,7 @@ class IncomingMonitor:
 
             if s3_path not in self.known_files:
                 _, extension = os.path.splitext(s3_path)
-                if extension not in ignore_extensions:
+                if extension and (extension not in ignore_extensions):
                     head = self.s3_client.head_object(s3_bucket_name, s3_path)
                     self.add_new_file_to_status_table(s3_bucket_name, s3_path, head)
                     files_added_to_status_table.append(s3_path)
