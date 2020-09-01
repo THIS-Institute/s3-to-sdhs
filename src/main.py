@@ -26,12 +26,12 @@ from datetime import timedelta
 from dateutil import parser
 from http import HTTPStatus
 from pprint import pprint
+from thiscovery_lib.s3_utilities import S3Client
 
 import thiscovery_lib.utilities as utils
 from thiscovery_lib.dynamodb_utilities import Dynamodb
 from common.constants import STACK_NAME, STATUS_TABLE, AUDIT_TABLE, PROJECTS_TABLE
 from common.mediaconvert_utilities import MediaConvertClient
-from common.s3_utilities import S3Client
 
 
 class IncomingMonitor:

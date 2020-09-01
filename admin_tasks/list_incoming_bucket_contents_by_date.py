@@ -1,7 +1,7 @@
 from pprint import pprint
 
-import src.common.utilities as utils
-from src.common.s3_utilities import S3Client
+import thiscovery_lib.utilities as utils
+from thiscovery_lib.s3_utilities import S3Client
 from local.secrets import THISCOVERY_PROD_PROFILE
 
 
