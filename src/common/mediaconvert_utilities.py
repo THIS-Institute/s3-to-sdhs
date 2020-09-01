@@ -18,8 +18,8 @@
 import os
 from http import HTTPStatus
 
-import common.utilities as utils
-from common.dynamodb_utilities import STACK_NAME
+import thiscovery_lib.utilities as utils
+from common.constants import STACK_NAME
 
 
 ENDPOINT_SECRET_NAME = "media-convert-endpoint"

@@ -15,19 +15,14 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
-import datetime
-import json
-import unittest
-
-from dateutil.tz import tzutc
 from http import HTTPStatus
-from time import sleep
 
-import src.common.utilities as utils
+import thiscovery_lib.utilities as utils
 import tests.test_data as td
 import tests.testing_utilities as test_utils
-from src.common.dynamodb_utilities import Dynamodb, STACK_NAME
-from src.main import TransferManager, STATUS_TABLE
+from thiscovery_lib.dynamodb_utilities import Dynamodb
+from src.common.constants import STATUS_TABLE, STACK_NAME
+from src.main import TransferManager
 
 
 class TestTransferManager(test_utils.SdhsTransferTestCase):
@@ -36,7 +31,7 @@ class TestTransferManager(test_utils.SdhsTransferTestCase):
     def setUpClass(cls):
         super().setUpClass()
         super().populate_status_table()
-        cls.ddb_client = Dynamodb()
+        cls.ddb_client = Dynamodb(stack_name=STACK_NAME)
         cls.transfer_manager = TransferManager(utils.get_logger())
 
     def mark_audio_extraction_submitted(self, key):
