@@ -44,6 +44,8 @@ class TestTransferManager(test_utils.SdhsTransferTestCase):
         )
 
     def test_get_target_basename(self):
+        self.mark_audio_extraction_submitted('f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/'
+                                             '61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4')
         target_basename = self.transfer_manager.get_item_and_validate_status('f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/'
                                                                              '61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4')['target_basename']
         self.assertEqual(
@@ -59,7 +61,9 @@ class TestTransferManager(test_utils.SdhsTransferTestCase):
 
     def test_update_status_of_processed_item(self):
         key = 'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4'
-        r = self.ddb_client.update_item(STATUS_TABLE, key, {'processing_status': 'audio extraction job submitted'})
+        r = self.ddb_client.update_item(STATUS_TABLE, key, {
+            'processing_status': 'audio extraction job submitted'
+        })
         self.assertEqual(HTTPStatus.OK, r['ResponseMetadata']['HTTPStatusCode'])
         item = self.transfer_manager.get_item_and_validate_status(key)
         result = self.transfer_manager.update_status_of_processed_item(item, key)
