@@ -1,3 +1,4 @@
+import local.dev_config
 from pprint import pprint
 
 import thiscovery_lib.utilities as utils
@@ -41,8 +42,19 @@ class BucketReporter:
                 f"\n"
             )
 
+    def print_on_demand_interviews_report(self):
+        print('On-demand interviews:')
+        for i in self.on_demand_interviews:
+            print(
+                f"\t{i['Key']}\n"
+                f"\t{i['LastModified']}\n"
+                f"\t{i['Metadata']['referrer']}\n"
+                f"\t{i['Metadata']['email']}\n"
+                f"\n"
+            )
+
 
 if __name__ == '__main__':
     reporter = BucketReporter()
     reporter.sort_live_and_on_demand()
-    reporter.print_live_interviews_report()
+    reporter.print_on_demand_interviews_report()
