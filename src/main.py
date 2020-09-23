@@ -47,16 +47,17 @@ class IncomingMonitor:
         self.s3_client = S3Client()
         self.known_files = None
         self.active_projects = None
+        self.core_api_url = None
 
-    @staticmethod
-    def get_user_id_from_core_api(email):
+    def get_core_api_url(self):
         env_name = utils.get_environment_name()
         if env_name == 'prod':
-            core_api_url = 'https://api.thiscovery.org/'
+            return 'https://api.thiscovery.org/'
         else:
-            core_api_url = f'https://{env_name}-api.thiscovery.org/'
-        result = utils.aws_get('v1/user', core_api_url, params={'email': email})
+            return f'https://{env_name}-api.thiscovery.org/'
 
+    def get_user_id_from_core_api(self, email):
+        result = utils.aws_get('v1/user', self.get_core_api_url(), params={'email': email})
         assert result['statusCode'] == HTTPStatus.OK, f'Call to core API returned error: {result}'
         return json.loads(result['body'])['id']
 
@@ -68,6 +69,21 @@ class IncomingMonitor:
             correlation_id=self.correlation_id,
         )
         return self.active_projects
+
+    def get_anon_project_specific_user_id(self, user_id, project_id):
+        result = utils.aws_get('v1/userproject', self.get_core_api_url(), params={
+            'user_id': user_id
+        })
+        assert result['statusCode'] == HTTPStatus.OK, f'Call to core API returned error: {result}'
+        user_projects = json.loads(result['body'])
+        for up in user_projects:
+            if up['project_id'] == project_id:
+                return up['anon_project_specific_user_id']
+        raise utils.ObjectDoesNotExistError(f'User project not found', details={
+            'user_id': user_id,
+            'project_id': project_id,
+            'correlation_id': self.correlation_id,
+        })
 
     def add_new_file_to_status_table(self, s3_bucket_name, s3_path, head):
         if self.active_projects is None:
@@ -81,19 +97,25 @@ class IncomingMonitor:
         metadata = head['Metadata']
         user_id = self.get_user_id_from_core_api(metadata['email'])
         referrer_url = metadata.get('referrer')
-        project_id = None
+        project_acronym = None
         project_prefix = None
+        project_id = None
 
         if referrer_url:  # on-demand interview
             interview_type = 'INT-O'
             question_number = metadata['question_index']
             for p in self.active_projects:
                 if p.get('on_demand_referrer') == referrer_url:
-                    project_id = p['id']
+                    project_acronym = p['id']
                     project_prefix = p['filename_prefix']
+                    project_id = p['project_id']
                     break
             assert project_prefix, f'Referrer url {referrer_url} not found in Dynamodb table {PROJECTS_TABLE}'
-            target_basename = f'{project_prefix}_{interview_type}_{user_id}_{question_number}'
+            anon_project_specific_user_id = self.get_anon_project_specific_user_id(
+                user_id=user_id,
+                project_id=project_id,
+            )
+            target_basename = f'{project_prefix}_{interview_type}_{anon_project_specific_user_id}_{question_number}'
         else:  # live interview
             interview_type = 'INT-L'
             interviewer = metadata['interviewer']
@@ -107,17 +129,22 @@ class IncomingMonitor:
                 assert len(interviewer_matches) == 1, f'Could not resolve project based on interviewer. Interviewer {interviewer} is taking part in ' \
                                                       f'projects: {", ".join(map(lambda m: m["id"], interviewer_matches))}'
                 project = interviewer_matches[0]
-            project_id = project['id']
+            project_acronym = project['id']
             project_prefix = project['filename_prefix']
+            project_id = project['project_id']
             interviewer_initials = project['interviewers'][interviewer]['initials']
-            target_basename = f'{project_prefix}_{interview_type}_{interviewer_initials}_{user_id}'
+            anon_project_specific_user_id = self.get_anon_project_specific_user_id(
+                user_id=user_id,
+                project_id=project_id,
+            )
+            target_basename = f'{project_prefix}_{interview_type}_{interviewer_initials}_{anon_project_specific_user_id}'
 
         item = {
             'original_filename': s3_filename,
             'original_path': s3_path,
             'source_bucket': s3_bucket_name,
             'interview_id': interview_dir,
-            'project_id': project_id,
+            'project_acronym': project_acronym,
             'target_basename': target_basename,
             'audio_extraction_attempts': 0,
             'sdhs_transfer_attempts': 0,
@@ -215,11 +242,11 @@ class TransferManager:
         self.ddb_client = Dynamodb()
         self.s3_client = S3Client()
 
-    def get_sftp_parameters(self, project_id):
+    def get_sftp_parameters(self, project_acronym):
         sdhs_secret = utils.get_secret("sdhs-connection")
-        project_params = sdhs_secret['project_specific_parameters'].get(project_id)
+        project_params = sdhs_secret['project_specific_parameters'].get(project_acronym)
         if project_params is None:
-            raise utils.ObjectDoesNotExistError(f'Could not find SDHS parameters for project', details={'project_id': project_id,
+            raise utils.ObjectDoesNotExistError(f'Could not find SDHS parameters for project', details={'project_acronym': project_acronym,
                                                                                                         'correlation_id': self.correlation_id})
         target_folder = project_params['folder']
         sdhs_params = dict()
@@ -267,9 +294,9 @@ class TransferManager:
     def transfer_file(self, file_s3_key, s3_bucket_name):
         status_table_key = f'{os.path.splitext(file_s3_key)[0]}.mp4'
         item = self.get_item_and_validate_status(status_table_key)
-        project_id = item['project_id']
+        project_acronym = item['project_acronym']
         target_basename = item['target_basename']
-        sdhs_params, target_folder, cnopts = self.get_sftp_parameters(project_id)
+        sdhs_params, target_folder, cnopts = self.get_sftp_parameters(project_acronym)
 
         self.logger.debug(f'Initiating transfer', extra={'s3_bucket_name': s3_bucket_name, 'file_s3_key': file_s3_key})
         with pysftp.Connection(**sdhs_params, cnopts=cnopts) as sftp:
