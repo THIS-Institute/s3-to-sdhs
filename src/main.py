@@ -294,6 +294,11 @@ class TransferManager:
     def transfer_file(self, file_s3_key, s3_bucket_name):
         status_table_key = f'{os.path.splitext(file_s3_key)[0]}.mp4'
         item = self.get_item_and_validate_status(status_table_key)
+        if item is None:
+            raise utils.ObjectDoesNotExistError(f'Item not found in Dynamodb {STATUS_TABLE} table', details={
+                'key': status_table_key,
+                'correlation_id': self.correlation_id
+            })
         project_acronym = item['project_acronym']
         target_basename = item['target_basename']
         sdhs_params, target_folder, cnopts = self.get_sftp_parameters(project_acronym)
