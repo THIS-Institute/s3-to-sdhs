@@ -53,6 +53,7 @@ class SdhsTransferTestCase(test_tools.BaseTestCase):
                     "name": "Emiliano Smartparrot"
                 },
             },
+            "project_id": "7c18c259-ace6-4f48-9206-93cd15501348",
             "live_interviews": "true",
             "on_demand_interviews": "true",
             "on_demand_referrer": "https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-1",

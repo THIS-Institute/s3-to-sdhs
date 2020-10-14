@@ -67,7 +67,7 @@ test_s3_files = {
                 'RetryAttempts': 0
             }
         },
-        'expected_target_basename': 'IGNORE-this-test-file_INT-O_35224bd5-f8a8-41f6-8502-f96e12d6ddde_10',
+        'expected_target_basename': 'IGNORE-this-test-file_INT-O_3b76f205-762d-4fad-a06f-60f93bfbc5a9_10',
     },
     'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/audio/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.flac': {
         'head': {
@@ -151,6 +151,6 @@ test_s3_files = {
                 'RetryAttempts': 0
             }
         },
-        'expected_target_basename': 'IGNORE-this-test-file_INT-L_KK_35224bd5-f8a8-41f6-8502-f96e12d6ddde',
+        'expected_target_basename': 'IGNORE-this-test-file_INT-L_KK_3b76f205-762d-4fad-a06f-60f93bfbc5a9',
     },
 }

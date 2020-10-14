@@ -87,7 +87,7 @@ class MediaConvertClient(utils.BaseClient):
                         "OutputGroupSettings": {
                             "Type": "FILE_GROUP_SETTINGS",
                             "FileGroupSettings": {
-                                "Destination": f"s3://{STACK_NAME}-{self.env_name}-interview-audio/{folders}/$fn$.mp3"
+                                "Destination": f"s3://{STACK_NAME}-{self.env_name}-interview-audio/{folders}/$fn$"
                             }
                         }
                     }
