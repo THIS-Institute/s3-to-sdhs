@@ -15,23 +15,17 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
-import datetime
-import json
-import unittest
+import tests.testing_utilities as test_utils  # sets environment variables used in testing
+import thiscovery_dev_tools.testing_tools as test_tools
+import thiscovery_lib.utilities as utils
 
-from dateutil.tz import tzutc
-from http import HTTPStatus
 from time import sleep
 
-import src.common.utilities as utils
-import tests.test_data as td
-import tests.testing_utilities as test_utils
-from src.common.dynamodb_utilities import Dynamodb, STACK_NAME
-# from src.process_management import IncomingMonitor, STATUS_TABLE
 from src.common.mediaconvert_utilities import MediaConvertClient
+from src.common.constants import STACK_NAME
 
 
-class TestMediaConvertClient(test_utils.BaseTestCase):
+class TestMediaConvertClient(test_tools.BaseTestCase):
 
     @classmethod
     def setUpClass(cls):

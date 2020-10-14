@@ -17,9 +17,9 @@
 #
 import boto3
 
-import src.common.utilities as utils
-from src.common.dynamodb_utilities import STACK_NAME
-from src.common.s3_utilities import S3Client
+import thiscovery_lib.utilities as utils
+from src.common.constants import STACK_NAME
+
 
 TEST_FILES = [
     # 'unit-test-data/f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',

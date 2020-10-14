@@ -1,5 +1,2 @@
-boto3
-epsagon
 pysftp
-python-json-logger
-requests
+thiscovery-lib

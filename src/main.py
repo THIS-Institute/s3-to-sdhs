@@ -26,16 +26,12 @@ from datetime import timedelta
 from dateutil import parser
 from http import HTTPStatus
 from pprint import pprint
+from thiscovery_lib.s3_utilities import S3Client
 
-import common.utilities as utils
-from common.dynamodb_utilities import Dynamodb, STACK_NAME
+import thiscovery_lib.utilities as utils
+from thiscovery_lib.dynamodb_utilities import Dynamodb
+from common.constants import STACK_NAME, STATUS_TABLE, AUDIT_TABLE, PROJECTS_TABLE
 from common.mediaconvert_utilities import MediaConvertClient
-from common.s3_utilities import S3Client
-
-
-STATUS_TABLE = 'FileTransferStatus'
-AUDIT_TABLE = 'FileTransferAudit'
-PROJECTS_TABLE = 'ResearchProjects'
 
 
 class IncomingMonitor:
@@ -43,7 +39,7 @@ class IncomingMonitor:
     def __init__(self, logger, correlation_id=None):
         self.logger = logger
         self.correlation_id = correlation_id
-        self.ddb_client = Dynamodb()
+        self.ddb_client = Dynamodb(stack_name=STACK_NAME)
         self.s3_client = S3Client()
         self.known_files = None
         self.active_projects = None
@@ -65,8 +61,7 @@ class IncomingMonitor:
         self.active_projects = self.ddb_client.scan(
             table_name=PROJECTS_TABLE,
             filter_attr_name="interview_task_status",
-            filter_attr_values=['active'],
-            correlation_id=self.correlation_id,
+            filter_attr_values=['active']
         )
         return self.active_projects
 
@@ -211,7 +206,7 @@ class ProcessIncoming:
     def __init__(self, logger, correlation_id=None):
         self.logger = logger
         self.correlation_id = correlation_id
-        self.ddb_client = Dynamodb()
+        self.ddb_client = Dynamodb(stack_name=STACK_NAME)
         self.media_convert_client = MediaConvertClient()
 
     def main(self):
@@ -239,7 +234,7 @@ class TransferManager:
     def __init__(self, logger, correlation_id=None):
         self.logger = logger
         self.correlation_id = correlation_id
-        self.ddb_client = Dynamodb()
+        self.ddb_client = Dynamodb(stack_name=STACK_NAME)
         self.s3_client = S3Client()
 
     def get_sftp_parameters(self, project_acronym):
@@ -321,7 +316,7 @@ class Cleaner:
     def __init__(self, logger, correlation_id=None):
         self.logger = logger
         self.correlation_id = correlation_id
-        self.ddb_client = Dynamodb()
+        self.ddb_client = Dynamodb(stack_name=STACK_NAME)
         self.s3_client = S3Client()
         self.items_to_be_deleted = None
 

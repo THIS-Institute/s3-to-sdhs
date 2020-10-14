@@ -16,19 +16,13 @@
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
 import copy
-import datetime
-import json
-import unittest
-
-from dateutil.tz import tzutc
 from http import HTTPStatus
-from time import sleep
 
-import src.common.utilities as utils
+import thiscovery_lib.utilities as utils
 import tests.test_data as td
 import tests.testing_utilities as test_utils
-from src.common.dynamodb_utilities import Dynamodb, STACK_NAME
-from src.main import ProcessIncoming, IncomingMonitor, STATUS_TABLE
+from src.common.constants import STACK_NAME
+from src.main import ProcessIncoming, IncomingMonitor
 
 
 class TestProcessIncoming(test_utils.SdhsTransferTestCase):

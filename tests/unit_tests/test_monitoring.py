@@ -16,18 +16,14 @@
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
 import copy
-import datetime
-import json
-import unittest
-
-from dateutil.tz import tzutc
 from http import HTTPStatus
 
-import src.common.utilities as utils
+import thiscovery_lib.utilities as utils
 import tests.test_data as td
 import tests.testing_utilities as test_utils
-from src.common.dynamodb_utilities import Dynamodb, STACK_NAME
-from src.main import IncomingMonitor, STATUS_TABLE
+from thiscovery_lib.dynamodb_utilities import Dynamodb
+from src.common.constants import STATUS_TABLE, STACK_NAME
+from src.main import IncomingMonitor
 
 
 class TestMonitoring(test_utils.SdhsTransferTestCase):
@@ -39,7 +35,7 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.ddb_client = Dynamodb()
+        cls.ddb_client = Dynamodb(stack_name=STACK_NAME)
         cls.monitor = IncomingMonitor(utils.get_logger())
 
     def test_get_user_id_from_core_api(self):
