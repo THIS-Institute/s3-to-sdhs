@@ -74,6 +74,5 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
         response = lambda_client.invoke(
             function_name='MonitorIncomingBucket'
         )
-        from pprint import pprint
-        pprint(response)
-        self.assertNotIn('FunctionError', response.keys())
+        # by design this lambda only works in production, so a FunctionError should be present in the response
+        self.assertIn('FunctionError', response.keys())
