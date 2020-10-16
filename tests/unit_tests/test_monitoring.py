@@ -16,12 +16,15 @@
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
 import copy
+import os
+import unittest
 from http import HTTPStatus
 
 import thiscovery_lib.utilities as utils
 import tests.test_data as td
 import tests.testing_utilities as test_utils
 from thiscovery_lib.dynamodb_utilities import Dynamodb
+from thiscovery_lib.lambda_utilities import Lambda
 from src.common.constants import STATUS_TABLE, STACK_NAME
 from src.main import IncomingMonitor
 
@@ -64,3 +67,13 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
         for k in expected_keys:
             item = self.ddb_client.get_item(STATUS_TABLE, key=k)
             self.assertEqual(td.test_s3_files[k]['expected_target_basename'], item['target_basename'])
+
+    @unittest.skipUnless(os.environ['TEST_ON_AWS'] == 'True', 'Invokes lambda on AWS')
+    def test_monitor_lambda_working_on_aws(self):
+        lambda_client = Lambda(stack_name=STACK_NAME)
+        response = lambda_client.invoke(
+            function_name='MonitorIncomingBucket'
+        )
+        from pprint import pprint
+        pprint(response)
+        self.assertNotIn('FunctionError', response.keys())
