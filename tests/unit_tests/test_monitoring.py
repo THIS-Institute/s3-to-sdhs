@@ -19,6 +19,7 @@ import copy
 import os
 import unittest
 from http import HTTPStatus
+from pprint import pprint
 
 import thiscovery_lib.utilities as utils
 import tests.test_data as td
@@ -34,6 +35,10 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
         'id': '35224bd5-f8a8-41f6-8502-f96e12d6ddde',
         'email': "delia@email.co.uk",
     }
+    test_files_keys = [
+        'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
+        'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
+    ]
 
     @classmethod
     def setUpClass(cls):
@@ -46,11 +51,7 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
         self.assertEqual(self.test_user['id'], user_id)
 
     def test_add_new_file_to_status_table(self):
-        keys = [
-            'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
-            'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
-        ]
-        for k in keys:
+        for k in self.test_files_keys:
             v = td.test_s3_files[k]
             head = copy.deepcopy(v['head'])
             result = self.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
@@ -58,15 +59,12 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
             self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
 
     def test_incoming_monitor_main(self):
-        expected_keys = [
-            'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
-            'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
-        ]
         files_added_to_status_table = self.monitor.main(bucket_name='mockincomingbucket')
-        self.assertCountEqual(expected_keys, files_added_to_status_table)
-        for k in expected_keys:
+        self.assertCountEqual(self.test_files_keys, files_added_to_status_table)
+        for k in self.test_files_keys:
             item = self.ddb_client.get_item(STATUS_TABLE, key=k)
             self.assertEqual(td.test_s3_files[k]['expected_target_basename'], item['target_basename'])
+            self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
 
     @unittest.skipUnless(os.environ['TEST_ON_AWS'] == 'True', 'Invokes lambda on AWS')
     def test_monitor_lambda_working_on_aws(self):
@@ -74,5 +72,5 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
         response = lambda_client.invoke(
             function_name='MonitorIncomingBucket'
         )
-        # by design this lambda only works in production, so a FunctionError should be present in the response
-        self.assertIn('FunctionError', response.keys())
+        self.assertNotIn('FunctionError', response.keys())
+        self.assertCountEqual(self.test_files_keys, response['Payload'])

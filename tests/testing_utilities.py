@@ -31,8 +31,8 @@ from src.main import PROJECTS_TABLE, STATUS_TABLE, IncomingMonitor, STACK_NAME
 
 class SdhsTransferTestCase(test_tools.BaseTestCase):
     test_projects = {
-        # "unittest-1": {
-        "efi": {
+        "unittest-1": {
+        # "efi": {
             "filename_prefix": "IGNORE-this-test-file",
             "interview_task_status": "active",
             "interviewers": {
