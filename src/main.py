@@ -178,9 +178,7 @@ class IncomingMonitor:
         if bucket_name:
             s3_bucket_name = f'{STACK_NAME}-{utils.get_environment_name()}-{bucket_name}'
         else:
-            s3_bucket_name = utils.get_secret("incoming-interviews-bucket", namespace_override='/prod/')['name']
-            # # the approach in the line below does not work on AWS; use a S3 bucket policy to allow access from this lambda instead.
-            # self.s3_client = S3Client(utils.namespace2profile('/prod/'))  # use an s3_client with access to production buckets
+            s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
         objs = self.s3_client.list_objects(s3_bucket_name)['Contents']
         for o in objs:
             s3_path = o['Key']
