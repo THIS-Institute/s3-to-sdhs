@@ -25,7 +25,7 @@ from thiscovery_lib.lambda_utilities import Lambda
 import thiscovery_lib.utilities as utils
 import tests.test_data as td
 import tests.testing_utilities as test_utils
-from src.common.constants import STACK_NAME
+from src.common.constants import STACK_NAME, STATUS_TABLE
 from src.main import ProcessIncoming, IncomingMonitor
 
 
@@ -52,9 +52,13 @@ class TestProcessIncoming(test_utils.SdhsTransferTestCase):
                 (HTTPStatus.CREATED, HTTPStatus.OK),
                 (media_convert_result['ResponseMetadata']['HTTPStatusCode'], ddb_result['ResponseMetadata']['HTTPStatusCode'])
             )
+        self.ddb_client.delete_all(STATUS_TABLE)
 
     @unittest.skipUnless(os.environ['TEST_ON_AWS'] == 'True', 'Invokes lambda on AWS')
     def test_process_incoming_lambda_working_on_aws(self):
+        """
+        Invokes function with STATUS_TABLE empty, so returned payload should be an empty list
+        """
         lambda_client = Lambda(stack_name=STACK_NAME)
         response = lambda_client.invoke(
             function_name='ProcessIncomingFiles'
