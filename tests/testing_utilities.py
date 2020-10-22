@@ -31,8 +31,8 @@ from src.main import PROJECTS_TABLE, STATUS_TABLE, IncomingMonitor, STACK_NAME
 
 class SdhsTransferTestCase(test_tools.BaseTestCase):
     test_projects = {
-        # "unittest-1": {
-        "efi": {
+        "unittest-1": {
+        # "efi": {
             "filename_prefix": "IGNORE-this-test-file",
             "interview_task_status": "active",
             "interviewers": {
@@ -59,6 +59,11 @@ class SdhsTransferTestCase(test_tools.BaseTestCase):
             "on_demand_referrer": "https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-1",
         }
     }
+
+    test_keys = [
+        'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
+        'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
+    ]
 
     @classmethod
     def setUpClass(cls):
@@ -88,12 +93,8 @@ class SdhsTransferTestCase(test_tools.BaseTestCase):
 
     @classmethod
     def populate_status_table(cls):
-        keys = [
-            'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
-            'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
-        ]
         cls.monitor = IncomingMonitor(utils.get_logger())
-        for k in keys:
+        for k in cls.test_keys:
             v = td.test_s3_files[k]
             head = copy.deepcopy(v['head'])
             cls.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)

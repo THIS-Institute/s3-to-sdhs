@@ -15,12 +15,16 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
+import os
+import unittest
 from http import HTTPStatus
+from pprint import pprint
 
 import thiscovery_lib.utilities as utils
 import tests.test_data as td
 import tests.testing_utilities as test_utils
 from thiscovery_lib.dynamodb_utilities import Dynamodb
+from thiscovery_lib.lambda_utilities import Lambda
 from src.common.constants import STATUS_TABLE, STACK_NAME
 from src.main import TransferManager
 
@@ -79,3 +83,60 @@ class TestTransferManager(test_utils.SdhsTransferTestCase):
             self.mark_audio_extraction_submitted(k.replace('.mp3', '.mp4'))
             result = self.transfer_manager.transfer_file(k, bucket_name)
             self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])
+
+    @unittest.skipUnless(os.environ['TEST_ON_AWS'] == 'True', 'Invokes lambda on AWS')
+    def test_transfer_file_working_on_aws(self):
+        """
+        To prevent a real transfer to SDHS, this test invokes TransferFile using a non-existent
+        s3 object key, so we should expect an error in the response
+        """
+        test_s3_event = {
+            "Records": [
+                {
+                    "eventVersion": "2.1",
+                    "eventSource": "aws:s3",
+                    "awsRegion": "eu-west-1",
+                    "eventTime": "2020-10-13T11:03:26.628Z",
+                    "eventName": "ObjectCreated:CompleteMultipartUpload",
+                    "userIdentity": {
+                        "principalId": "redacted"
+                    },
+                    "requestParameters": {
+                        "sourceIPAddress": "redacted"
+                    },
+                    "responseElements": {
+                        "x-amz-request-id": "redacted",
+                        "x-amz-id-2": "redacted"
+                    },
+                    "s3": {
+                        "s3SchemaVersion": "1.0",
+                        "configurationId": "redacted",
+                        "bucket": {
+                            "name": f"{STACK_NAME}-{utils.get_environment_name()}-interview-audio",
+                            "ownerIdentity": {
+                                "principalId": "redacted"
+                            },
+                            "arn": "redacted"
+                        },
+                        "object": {
+                            "key": f"NA_{self.test_keys[0].replace('.mp4', '.mp3')}",
+                            "size": 238220928,
+                            "eTag": "redacted",
+                            "sequencer": "redacted"
+                        }
+                    }
+                }
+            ],
+            "correlation_id": "0c4e6f9b-8e42-463b-a4b1-661d346944c3",
+            "logger": "<Logger thiscovery (DEBUG)>"
+        }
+
+        lambda_client = Lambda(stack_name=STACK_NAME)
+        response = lambda_client.invoke(
+            function_name='TransferFile',
+            payload=test_s3_event,
+        )
+        self.assertIn('FunctionError', response.keys())
+        # check ddb get_item returned None for non-existent key
+        self.assertEqual('TypeError', response['Payload']['errorType'])
+        self.assertEqual("'NoneType' object is not subscriptable", response['Payload']['errorMessage'])

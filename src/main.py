@@ -178,9 +178,7 @@ class IncomingMonitor:
         if bucket_name:
             s3_bucket_name = f'{STACK_NAME}-{utils.get_environment_name()}-{bucket_name}'
         else:
-            s3_bucket_name = utils.get_secret("incoming-interviews-bucket", namespace_override='/prod/')['name']
-            # # the approach in the line below does not work on AWS; use a S3 bucket policy to allow access from this lambda instead.
-            # self.s3_client = S3Client(utils.namespace2profile('/prod/'))  # use an s3_client with access to production buckets
+            s3_bucket_name = utils.get_secret("incoming-interviews-bucket")['name']
         objs = self.s3_client.list_objects(s3_bucket_name)['Contents']
         for o in objs:
             s3_path = o['Key']
@@ -386,7 +384,7 @@ def monitor_incoming_bucket(event, context):
     logger = event['logger']
     correlation_id = event['correlation_id']
     incoming_monitor = IncomingMonitor(logger=logger, correlation_id=correlation_id)
-    incoming_monitor.main()
+    return incoming_monitor.main()
 
 
 @utils.lambda_wrapper
@@ -394,7 +392,7 @@ def process_incoming_files(event, context):
     logger = event['logger']
     correlation_id = event['correlation_id']
     processor = ProcessIncoming(logger=logger, correlation_id=correlation_id)
-    processor.main()
+    return processor.main()
 
 
 @utils.lambda_wrapper
@@ -409,7 +407,7 @@ def transfer_file(event, context):
     bucket_name, s3_object = record['bucket']['name'], record['object']
     transfer_manager = TransferManager(logger, correlation_id)
     logger.debug('Calling transfer_file', extra={'bucket_name': bucket_name, 's3_object': s3_object})
-    transfer_manager.transfer_file(s3_object['key'], s3_bucket_name=bucket_name)
+    return transfer_manager.transfer_file(s3_object['key'], s3_bucket_name=bucket_name)
 
 
 @utils.lambda_wrapper
@@ -417,7 +415,7 @@ def clear_processed(event, context):
     logger = event['logger']
     correlation_id = event['correlation_id']
     cleaner = Cleaner(logger, correlation_id)
-    cleaner.main()
+    return cleaner.main()
 
 
 if __name__ == "__main__":
