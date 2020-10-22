@@ -15,6 +15,8 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
+import local.dev_config  # sets env variables
+import local.secrets  # sets env variables
 import boto3
 
 import thiscovery_lib.utilities as utils
@@ -22,6 +24,8 @@ from src.common.constants import STACK_NAME
 
 
 TEST_FILES = [
+    'unit-test-data/01f4fc68-6843-475d-bbd8-e77064413e09/video/21d1cf26-5c26-4095-9d75-528135c3813c.mp4',
+    'unit-test-data/bc2c1b30-1777-49af-b93e-2d7e9e92ac99/video/ba56e21b-3b88-4ce1-a3eb-26d8d4529bd3.mp4',
     # 'unit-test-data/f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
     # 'unit-test-data/f21d28a7-d3a5-42bf-8771-5d205ab67dcb/audio/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.flac',
     # 'unit-test-data/f21d28a7-d3a5-42bf-8771-5d205ab67dcb/audio/b1175609-3d59-4936-ad50-05ecf65ed32e.flac',

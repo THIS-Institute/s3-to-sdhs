@@ -23,7 +23,7 @@ import tests.test_data as td
 import tests.testing_utilities as test_utils
 from thiscovery_lib.dynamodb_utilities import Dynamodb
 from src.common.constants import STATUS_TABLE, STACK_NAME
-from src.main import IncomingMonitor
+from src.monitor import IncomingMonitor
 
 
 class TestMonitoring(test_utils.SdhsTransferTestCase):
@@ -38,26 +38,34 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
         cls.ddb_client = Dynamodb(stack_name=STACK_NAME)
         cls.monitor = IncomingMonitor(utils.get_logger())
 
-    def test_get_user_id_from_core_api(self):
-        user_id = self.monitor.get_user_id_from_core_api(self.test_user['email'])
-        self.assertEqual(self.test_user['id'], user_id)
+    def test_01_add_new_file_to_status_table_ok(self):
+        v = td.test_s3_files['f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4']
+        head = copy.deepcopy(v['head'])
+        result = self.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
+        self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])
+        item = self.ddb_client.get_item(STATUS_TABLE, key=k)
+        self.assertEqual(td.test_s3_files[k]['expected_target_basename'], item['target_basename'])
+        self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
 
-    def test_add_new_file_to_status_table(self):
+    def test_02_add_new_file_to_status_table_fails_participant_and_interviewer_(self):
         keys = [
-            'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
-            'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
+            'bc2c1b30-1777-49af-b93e-2d7e9e92ac99/video/ba56e21b-3b88-4ce1-a3eb-26d8d4529bd3.mp4',
         ]
         for k in keys:
             v = td.test_s3_files[k]
             head = copy.deepcopy(v['head'])
             result = self.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
             self.assertEqual(HTTPStatus.OK, result['ResponseMetadata']['HTTPStatusCode'])
-            self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
+            item = self.ddb_client.get_item(STATUS_TABLE, key=k)
+            self.assertEqual(td.test_s3_files[k]['expected_target_basename'], item['target_basename'])
+            # self.ddb_client.delete_item(table_name=STATUS_TABLE, key=k)
 
-    def test_incoming_monitor_main(self):
+    def test_02_incoming_monitor_main(self):
         expected_keys = [
             'f21d28a7-d3a5-42bf-8771-5d205ab67dcb/video/61ca75b6-2c2e-4d32-a8a6-300bf7fd6fa1.mp4',
             'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
+            '01f4fc68-6843-475d-bbd8-e77064413e09/video/21d1cf26-5c26-4095-9d75-528135c3813c.mp4',
+            'bc2c1b30-1777-49af-b93e-2d7e9e92ac99/video/ba56e21b-3b88-4ce1-a3eb-26d8d4529bd3.mp4',
         ]
         files_added_to_status_table = self.monitor.main(bucket_name='mockincomingbucket')
         self.assertCountEqual(expected_keys, files_added_to_status_table)

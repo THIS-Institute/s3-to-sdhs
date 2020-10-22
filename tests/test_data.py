@@ -45,19 +45,19 @@ test_s3_files = {
                     'date': 'Thu, 11 Jun 2020 13:23:29 GMT',
                     'etag': '"c0fe76df38abb72163b583e0da06fbb9"',
                     'last-modified': 'Thu, 11 Jun 2020 '
-                                  '13:14:28 GMT',
+                                     '13:14:28 GMT',
                     'server': 'AmazonS3',
                     'x-amz-id-2': 'WaW/8A7eI8CjisS3/DMNCjVTG9jcknkPBLRxYOTujxhq673l6G51iEN+LypkAB4DwcEwUxN2OUc=',
                     'x-amz-meta-email': 'delia@email.co.uk',
                     'x-amz-meta-platform': 'Firefox 75.0 on '
-                                        'OS X 10.15',
+                                           'OS X 10.15',
                     'x-amz-meta-question': 'Are there any harms you can think of that might be associated with the test? They might be physical (e.g. the '
                                            'discomfort of the swab), psychological (e.g. anxiety) or other harms (e.g. possible uses that might be made of the '
                                            'information about the test that might not be in the interests of individuals).',
                     'x-amz-meta-question_index': '10',
                     'x-amz-meta-referrer': 'https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-1',
                     'x-amz-meta-username': 'Testagain '
-                                        'Andagain',
+                                           'Andagain',
                     'x-amz-meta-videoid': 'f21d28a7-d3a5-42bf-8771-5d205ab67dcb',
                     'x-amz-request-id': 'A6738C5F1915BE19'
                 },
@@ -95,7 +95,7 @@ test_s3_files = {
                     'date': 'Sat, 25 Jul 2020 14:28:51 GMT',
                     'etag': '"23439d49e08d4e12150bd25cd92cddfc"',
                     'last-modified': 'Thu, 11 Jun 2020 '
-                                   '13:14:28 GMT',
+                                     '13:14:28 GMT',
                     'server': 'AmazonS3',
                     'x-amz-id-2': 'gsE5hIDe0l6kVrck98V9wyDQO34SpASlWoC1YHhraAgTl2V21bOaaYfcXFOaXGTxlBzcXviZSB8=',
                     'x-amz-meta-email': 'delia@email.co.uk',
@@ -106,14 +106,14 @@ test_s3_files = {
                     'x-amz-meta-question_index': '10',
                     'x-amz-meta-referrer': 'https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-1',
                     'x-amz-meta-username': 'Testagain '
-                                         'Andagain',
+                                           'Andagain',
                     'x-amz-meta-videoid': 'f21d28a7-d3a5-42bf-8771-5d205ab67dcb',
                     'x-amz-request-id': '616562F10E92499D'
                 },
-            'HTTPStatusCode': 200,
-            'HostId': 'gsE5hIDe0l6kVrck98V9wyDQO34SpASlWoC1YHhraAgTl2V21bOaaYfcXFOaXGTxlBzcXviZSB8=',
-            'RequestId': '616562F10E92499D',
-            'RetryAttempts': 0
+                'HTTPStatusCode': 200,
+                'HostId': 'gsE5hIDe0l6kVrck98V9wyDQO34SpASlWoC1YHhraAgTl2V21bOaaYfcXFOaXGTxlBzcXviZSB8=',
+                'RequestId': '616562F10E92499D',
+                'RetryAttempts': 0
             }
         },
     },
@@ -137,7 +137,7 @@ test_s3_files = {
                     'date': 'Thu, 23 Jul 2020 11:44:22 GMT',
                     'etag': '"a2b75be34b503a47d07e3c2d1f73e2fe"',
                     'last-modified': 'Thu, 23 Jul 2020 '
-                                   '11:32:52 GMT',
+                                     '11:32:52 GMT',
                     'server': 'AmazonS3',
                     'x-amz-id-2': '1E23JzggfBKTCU2BTOWDRM+elQW0iP550dezx3ZxGNGnjynvE5G/vSI/GbVCNz6WP+W+4ulQBdo=',
                     'x-amz-meta-email': 'delia@email.co.uk',
@@ -152,5 +152,38 @@ test_s3_files = {
             }
         },
         'expected_target_basename': 'IGNORE-this-test-file_INT-L_KK_3b76f205-762d-4fad-a06f-60f93bfbc5a9',
+    },
+    '01f4fc68-6843-475d-bbd8-e77064413e09/video/21d1cf26-5c26-4095-9d75-528135c3813c.mp4': {
+        'expected_target_basename': 'IGNORE-this-test-file_INT-L_KK_3b76f205-762d-4fad-a06f-60f93bfbc5a9',
+    },
+    'bc2c1b30-1777-49af-b93e-2d7e9e92ac99/video/ba56e21b-3b88-4ce1-a3eb-26d8d4529bd3.mp4': {
+        'head': {
+            'AcceptRanges': 'bytes',
+            'ContentLength': 589603776,
+            'ContentType': 'binary/octet-stream',
+            'ETag': '"83e77931917ee0d8377cb2fa573047a5-36"',
+            'LastModified': datetime.datetime(2020, 10, 22, 11, 37, 57, tzinfo=tzutc()),
+            'Metadata': {'email': 'clive@email.co.uk',
+                         'interviewer': 'OliverT',
+                         'name': 'testclive'},
+            'ResponseMetadata': {'HTTPHeaders': {'accept-ranges': 'bytes',
+                                                 'content-length': '589603776',
+                                                 'content-type': 'binary/octet-stream',
+                                                 'date': 'Thu, 22 Oct 2020 11:58:33 GMT',
+                                                 'etag': '"83e77931917ee0d8377cb2fa573047a5-36"',
+                                                 'last-modified': 'Thu, 22 Oct 2020 '
+                                                                  '11:37:57 GMT',
+                                                 'server': 'AmazonS3',
+                                                 'x-amz-id-2': 'gF6gD3FeCTsssacCeCBtilYeqQnTpUb79P/r8KyHuIPkGIp1fHlq261BRmIH/1U/96jVwqb8lj8=',
+                                                 'x-amz-meta-email': 'clive@email.co.uk',
+                                                 'x-amz-meta-interviewer': 'OliverT',
+                                                 'x-amz-meta-name': 'testclive',
+                                                 'x-amz-request-id': '0X5K5SCPAJ4P8K5M'},
+                                 'HTTPStatusCode': 200,
+                                 'HostId': 'gF6gD3FeCTsssacCeCBtilYeqQnTpUb79P/r8KyHuIPkGIp1fHlq261BRmIH/1U/96jVwqb8lj8=',
+                                 'RequestId': '0X5K5SCPAJ4P8K5M',
+                                 'RetryAttempts': 0}
+        },
+        'expected_target_basename': 'IGNORE-this-test-file_INT-L_OT_3b76f205-762d-4fad-a06f-60f93bfbc5a9',
     },
 }

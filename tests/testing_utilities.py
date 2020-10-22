@@ -26,13 +26,14 @@ import thiscovery_lib.utilities as utils
 import tests.test_data as td
 from local.dev_config import TEST_ON_AWS, DELETE_TEST_DATA
 from thiscovery_lib.dynamodb_utilities import Dynamodb
-from src.main import PROJECTS_TABLE, STATUS_TABLE, IncomingMonitor, STACK_NAME
+from src.main import PROJECTS_TABLE, STATUS_TABLE, STACK_NAME
+from src.monitor import IncomingMonitor
 
 
 class SdhsTransferTestCase(test_tools.BaseTestCase):
     test_projects = {
-        # "unittest-1": {
-        "efi": {
+        "unittest-1": {
+        # "efi": {
             "filename_prefix": "IGNORE-this-test-file",
             "interview_task_status": "active",
             "interviewers": {
@@ -57,6 +58,24 @@ class SdhsTransferTestCase(test_tools.BaseTestCase):
             "live_interviews": "true",
             "on_demand_interviews": "true",
             "on_demand_referrer": "https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-1",
+        },
+        "unittest-2": {
+            "filename_prefix": "IGNORE-this-test-file-PSFU-05",
+            "interview_task_status": "active",
+            "interviewers": {
+                "OliverT": {
+                    "initials": "OT",
+                    "name": "Oliver Twist"
+                },
+                "Karolina K": {
+                    "initials": "KK",
+                    "name": "Karolina Kurts"
+                },
+            },
+            "project_id": "5907275b-6d75-4ec0-ada8-5854b44fb955",
+            "live_interviews": "true",
+            "on_demand_interviews": "true",
+            "on_demand_referrer": "https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-2",
         }
     }
 
