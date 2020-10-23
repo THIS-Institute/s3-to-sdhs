@@ -9,6 +9,6 @@ BUCKET = "s3-to-sdhs-test-afs25-mockincomingbucket"
 s3 = S3Client()
 objs = s3.list_objects(BUCKET)['Contents']
 for o in objs:
-    if o['Key'] == 'bc2c1b30-1777-49af-b93e-2d7e9e92ac99/video/ba56e21b-3b88-4ce1-a3eb-26d8d4529bd3.mp4':
+    if o['Key'] == '427ff1f2-f0cf-4719-a1cf-1a561c1ba496/video/8a1fdf5a-061b-41a6-bee9-36ac3fba3fee.mp4':
         head = s3.head_object(BUCKET, o['Key'])
         pprint(head)

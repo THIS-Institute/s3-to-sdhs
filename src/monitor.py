@@ -15,15 +15,9 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
-import datetime
-import json
 import os
-import paramiko
-import pysftp
+import traceback
 
-from base64 import decodebytes
-from datetime import timedelta
-from dateutil import parser
 from http import HTTPStatus
 from pprint import pprint
 from thiscovery_lib.s3_utilities import S3Client
@@ -35,27 +29,37 @@ from common.constants import STACK_NAME, STATUS_TABLE, AUDIT_TABLE, PROJECTS_TAB
 from common.helpers import parse_s3_path
 
 
-class IncomingMonitor:
-
-    def __init__(self, logger, correlation_id=None):
-        self.logger = logger
+class InterviewFile:
+    def __init__(self, s3_bucket_name, s3_path, active_projects=None, core_api_client=None,
+                 ddb_client=None, s3_client=None, logger=None, correlation_id=None):
+        self.s3_bucket_name = s3_bucket_name
+        self.s3_path = s3_path
         self.correlation_id = correlation_id
-        self.core_api_client = CoreApiClient(correlation_id=correlation_id)
-        self.ddb_client = Dynamodb(stack_name=STACK_NAME, correlation_id=correlation_id)
-        self.s3_client = S3Client()
-        self.known_files = None
-        self.active_projects = None
+
+        self.active_projects = active_projects
+        if active_projects is None:
+            self.active_projects = self.ddb_client.scan(
+                table_name=PROJECTS_TABLE,
+                filter_attr_name="interview_task_status",
+                filter_attr_values=['active']
+            )
+        self.logger = logger
+        if logger is None:
+            self.logger = utils.get_logger()
+        self.core_api_client = core_api_client
+        if core_api_client is None:
+            self.core_api_client = CoreApiClient(correlation_id=correlation_id)
+        self.ddb_client = ddb_client
+        if ddb_client is None:
+            self.ddb_client = Dynamodb(stack_name=STACK_NAME, correlation_id=correlation_id)
+        self.s3_client = s3_client
+        if s3_client is None:
+            self.s3_client = S3Client()
+
+        self.head = self.s3_client.head_object(s3_bucket_name, s3_path)
         self.user_projects = None
 
-    def get_active_projects_info(self):
-        self.active_projects = self.ddb_client.scan(
-            table_name=PROJECTS_TABLE,
-            filter_attr_name="interview_task_status",
-            filter_attr_values=['active']
-        )
-        return self.active_projects
-
-    def get_anon_project_specific_user_id(self, user_id, project_id):
+    def _get_anon_project_specific_user_id(self, user_id, project_id):
         self.user_projects = self.core_api_client.get_userprojects(user_id=user_id)
         for up in self.user_projects:
             if up['project_id'] == project_id:
@@ -80,7 +84,7 @@ class IncomingMonitor:
                 project_id = p['project_id']
                 break
         assert project_prefix, f'Referrer url {referrer_url} not found in Dynamodb table {PROJECTS_TABLE}'
-        anon_project_specific_user_id = self.get_anon_project_specific_user_id(
+        anon_project_specific_user_id = self._get_anon_project_specific_user_id(
             user_id=user_id,
             project_id=project_id,
         )
@@ -106,7 +110,7 @@ class IncomingMonitor:
             error_message = f'Could not resolve project of file {s3_path}.'
             if not interviewer_matches:
                 raise utils.DetailedValueError(
-                    message=f'{error_message} Interviewer {interviewer} is not taking part in any active project',
+                    f'{error_message} Interviewer {interviewer} is not taking part in any active project',
                     details={'active projects': self.active_projects},
                 )
             elif len(interviewer_matches) == 1:
@@ -114,7 +118,7 @@ class IncomingMonitor:
             else:
                 if not participant_matches:
                     raise utils.DetailedValueError(
-                        message=f'{error_message} Participant {metadata["email"]} is not taking part in any active project.',
+                        f'{error_message} Participant {metadata["email"]} is not taking part in any active project.',
                         details={
                             'active projects': self.active_projects,
                             'interviewer_matches': interviewer_matches
@@ -123,8 +127,8 @@ class IncomingMonitor:
                 common_matches = [x for x in participant_matches if x in interviewer_matches]
                 if not common_matches:
                     raise utils.DetailedValueError(
-                        message=f'{error_message} Participant {metadata["email"]} and interviewer {interviewer} active '
-                                f'projects do not overlap',
+                        f'{error_message} Participant {metadata["email"]} and interviewer {interviewer} active '
+                        f'projects do not overlap',
                         details={
                             'active projects': self.active_projects,
                             'interviewer_matches': interviewer_matches,
@@ -135,8 +139,8 @@ class IncomingMonitor:
                     project = common_matches[0]
                 else:
                     raise utils.DetailedValueError(
-                        message=f'{error_message} Participant {metadata["email"]} and interviewer {interviewer} are '
-                                f'taking part in more than one active project',
+                        f'{error_message} Participant {metadata["email"]} and interviewer {interviewer} are '
+                        f'taking part in more than one active project',
                         details={
                             'active projects': self.active_projects,
                             'interviewer_matches': interviewer_matches,
@@ -147,23 +151,20 @@ class IncomingMonitor:
         project_prefix = project['filename_prefix']
         project_id = project['project_id']
         interviewer_initials = project['interviewers'][interviewer]['initials']
-        anon_project_specific_user_id = self.get_anon_project_specific_user_id(
+        anon_project_specific_user_id = self._get_anon_project_specific_user_id(
             user_id=user_id,
             project_id=project_id,
         )
         target_basename = f'{project_prefix}_{interview_type}_{interviewer_initials}_{anon_project_specific_user_id}'
         return project_acronym, project_prefix, project_id, anon_project_specific_user_id, target_basename
 
-    def add_new_file_to_status_table(self, s3_bucket_name, s3_path, head):
-        if self.active_projects is None:
-            self.get_active_projects_info()
+    def add_to_status_table(self):
         if not self.active_projects:
             raise utils.ObjectDoesNotExistError(f"No research projects conducting interviews could be found in Dynamodb {PROJECTS_TABLE} table",
                                                 details={'active_projects': self.active_projects})
-
-        self.logger.debug('Path of S3 file', extra={'s3_path': s3_path, 's3_bucket_name': s3_bucket_name})
-        s3_filename, interview_dir, file_type = parse_s3_path(s3_path)
-        metadata = head['Metadata']
+        self.logger.debug('Path of S3 file', extra={'s3_path': self.s3_path, 's3_bucket_name': self.s3_bucket_name})
+        s3_filename, interview_dir, file_type = parse_s3_path(self.s3_path)
+        metadata = self.head['Metadata']
         user_id = self.core_api_client.get_user_id_by_email(email=metadata['email'])
         referrer_url = metadata.get('referrer')
 
@@ -188,13 +189,13 @@ class IncomingMonitor:
             ) = self._parse_live_interview_metadata(
                 metadata=metadata,
                 user_id=user_id,
-                s3_path=s3_path,
+                s3_path=self.s3_path,
             )
 
         item = {
             'original_filename': s3_filename,
-            'original_path': s3_path,
-            'source_bucket': s3_bucket_name,
+            'original_path': self.s3_path,
+            'source_bucket': self.s3_bucket_name,
             'interview_id': interview_dir,
             'project_acronym': project_acronym,
             'target_basename': target_basename,
@@ -202,23 +203,41 @@ class IncomingMonitor:
             'sdhs_transfer_attempts': 0,
             'processing_status': 'new',
         }
-        head['uploaded_to_s3'] = str(head.get('LastModified'))
-        del head['LastModified']
+        self.head['uploaded_to_s3'] = str(self.head.get('LastModified'))
+        del self.head['LastModified']
         try:
             self.logger.debug('Adding item to FileTransferStatus table', extra={'item': item})
             result = self.ddb_client.put_item(
                 table_name=STATUS_TABLE,
-                key=s3_path,
+                key=self.s3_path,
                 item_type=file_type,
-                item_details=head,
+                item_details=self.head,
                 item=item,
                 correlation_id=self.correlation_id
             )
             assert result['ResponseMetadata']['HTTPStatusCode'] == HTTPStatus.OK, f"put_item operation failed with response: {result}"
             return result
         except utils.DetailedValueError:
-            self.logger.error(f'Key {s3_path} already exists in DynamoDb table', extra={'key': s3_path})
-            raise
+            raise utils.DetailedValueError(
+                f'Key {self.s3_path} already exists in DynamoDb table',
+                details={'key': self.s3_path},
+            )
+
+
+class IncomingMonitor:
+
+    def __init__(self, logger, correlation_id=None):
+        self.logger = logger
+        self.correlation_id = correlation_id
+        self.core_api_client = CoreApiClient(correlation_id=correlation_id)
+        self.ddb_client = Dynamodb(stack_name=STACK_NAME, correlation_id=correlation_id)
+        self.s3_client = S3Client()
+        self.active_projects = self.ddb_client.scan(
+            table_name=PROJECTS_TABLE,
+            filter_attr_name="interview_task_status",
+            filter_attr_values=['active']
+        )
+        self.known_files = [x['id'] for x in self.ddb_client.scan(STATUS_TABLE)]
 
     def main(self, ignore_extensions=['.mp3', '.flac'], bucket_name=None):
         """
@@ -231,13 +250,10 @@ class IncomingMonitor:
         Returns:
         """
         files_added_to_status_table = list()
-        self.known_files = [x['id'] for x in self.ddb_client.scan(STATUS_TABLE)]
         if bucket_name:
             s3_bucket_name = f'{STACK_NAME}-{utils.get_environment_name()}-{bucket_name}'
         else:
             s3_bucket_name = utils.get_secret("incoming-interviews-bucket", namespace_override='/prod/')['name']
-            # # the approach in the line below does not work on AWS; use a S3 bucket policy to allow access from this lambda instead.
-            # self.s3_client = S3Client(utils.namespace2profile('/prod/'))  # use an s3_client with access to production buckets
         objs = self.s3_client.list_objects(s3_bucket_name)['Contents']
         for o in objs:
             s3_path = o['Key']
@@ -253,8 +269,25 @@ class IncomingMonitor:
             if s3_path not in self.known_files:
                 _, extension = os.path.splitext(s3_path)
                 if extension and (extension not in ignore_extensions):
-                    head = self.s3_client.head_object(s3_bucket_name, s3_path)
-                    self.add_new_file_to_status_table(s3_bucket_name, s3_path, head)
-                    files_added_to_status_table.append(s3_path)
+                    interview_file = InterviewFile(
+                        s3_bucket_name=s3_bucket_name,
+                        s3_path=s3_path,
+                        active_projects=self.active_projects,
+                        logger=self.logger,
+                        correlation_id=self.correlation_id,
+                        core_api_client=self.core_api_client,
+                        ddb_client=self.ddb_client,
+                        s3_client=self.s3_client,
+                    )
+                    try:
+                        interview_file.add_to_status_table()
+                        files_added_to_status_table.append(s3_path)
+                    except:
+                        self.logger.error(
+                            f'Failed to add {s3_path} to ddb table {STATUS_TABLE}',
+                            extra={
+                                'traceback': traceback.format_exc()
+                            },
+                        )
         return files_added_to_status_table
 

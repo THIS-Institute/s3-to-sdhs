@@ -53,6 +53,10 @@ class SdhsTransferTestCase(test_tools.BaseTestCase):
                     "initials": "ES",
                     "name": "Emiliano Smartparrot"
                 },
+                "Joanna E": {
+                    "initials": "JE",
+                    "name": "Joanna Easton"
+                },
             },
             "project_id": "7c18c259-ace6-4f48-9206-93cd15501348",
             "live_interviews": "true",
@@ -76,7 +80,21 @@ class SdhsTransferTestCase(test_tools.BaseTestCase):
             "live_interviews": "true",
             "on_demand_interviews": "true",
             "on_demand_referrer": "https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-2",
-        }
+        },
+        "unittest-3": {
+            "filename_prefix": "IGNORE-this-test-file-PSFU-06",
+            "interview_task_status": "active",
+            "interviewers": {
+                "Joanna E": {
+                    "initials": "JE",
+                    "name": "Joanna Easton"
+                },
+            },
+            "project_id": "ce36d4d9-d3d3-493f-98e4-04f4b29ccf49",
+            "live_interviews": "true",
+            "on_demand_interviews": "true",
+            "on_demand_referrer": "https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-3",
+        },
     }
 
     test_keys = [
