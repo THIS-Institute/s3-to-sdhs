@@ -1,2 +1,2 @@
 pysftp
-thiscovery-lib==2020.8
+thiscovery-lib==2020.9.2
