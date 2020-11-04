@@ -33,6 +33,7 @@ from thiscovery_lib.dynamodb_utilities import Dynamodb
 from common.constants import STACK_NAME, STATUS_TABLE, AUDIT_TABLE, PROJECTS_TABLE
 from common.mediaconvert_utilities import MediaConvertClient
 from common.helpers import parse_s3_path
+from monitor import IncomingMonitor
 
 
 class ProcessIncoming:
