@@ -73,10 +73,11 @@ class MediaConvertClient(utils.BaseClient):
                                         "CodecSettings": {
                                             "Codec": "MP3",
                                             "Mp3Settings": {
-                                                "Bitrate": 192000,
-                                                "Channels": 2,
-                                                "RateControlMode": "CBR",
-                                                "SampleRate": 48000
+                                                "Bitrate": 96000,
+                                                "Channels": 1,
+                                                "RateControlMode": "VBR",
+                                                "SampleRate": 12000,
+                                                "VbrQuality": 4,
                                             }
                                         },
                                         "LanguageCodeControl": "FOLLOW_INPUT"
