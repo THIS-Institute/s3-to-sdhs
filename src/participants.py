@@ -16,42 +16,20 @@
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
 import csv
-import datetime
-import json
-import os
-import paramiko
 import pysftp
-
-from base64 import decodebytes
-from datetime import timedelta
-from dateutil import parser
-from http import HTTPStatus
-from pprint import pprint
-from thiscovery_lib.s3_utilities import S3Client
 
 import thiscovery_lib.utilities as utils
 from thiscovery_lib.core_api_utilities import CoreApiClient
 from thiscovery_lib.dynamodb_utilities import Dynamodb
 from thiscovery_lib.lambda_utilities import Lambda
-from common.constants import STACK_NAME, STATUS_TABLE, AUDIT_TABLE, PROJECTS_TABLE
-from common.mediaconvert_utilities import MediaConvertClient
-from common.helpers import parse_s3_path, get_sftp_parameters
-from monitor import IncomingMonitor
-from main import TransferManager
+from common.constants import STACK_NAME, PROJECTS_TABLE
+from common.helpers import get_sftp_parameters
 
 
 class ProjectParser:
-    def __init__(self, project_item, core_api_client=None, logger=None, correlation_id=None):
-        """
-
-        Args:
-            project_item: ddb item from ResearchProjects table
-            core_api_client:
-            logger:
-            correlation_id:
-        """
-        self.project_acronym = project_item['id']
-        self.project_id = project_item['project_id']
+    def __init__(self, project_acronym, project_id, core_api_client=None, logger=None, correlation_id=None):
+        self.project_acronym = project_acronym
+        self.project_id = project_id
         self.logger = logger
         if logger is None:
             self.logger = utils.get_logger()
@@ -86,7 +64,7 @@ class ProjectParser:
         })
 
 
-class ParticipantInfoTransfer:
+class ParticipantInfoTransferManager:
     def __init__(self, core_api_client=None, ddb_client=None, logger=None, correlation_id=None):
         self.logger = logger
         if logger is None:
@@ -110,17 +88,32 @@ class ParticipantInfoTransfer:
     def process_projects(self):
         for project in self.projects_to_process:
             response = self.lambda_client.invoke(
-                function_name=''
+                function_name='ParseProjectParticipants',
+                payload={
+                    'project_acronym': project['id'],
+                    'project_id': project['project_id'],
+                    'core_api_client': self.core_api_client,
+                    'correlation_id': self.correlation_id,
+                }
             )
 
 
 @utils.lambda_wrapper
 def parse_project_participants(event, context):
-    logger = event['logger']
-    correlation_id = event['correlation_id']
+    project_parser = ProjectParser(
+        project_acronym=event['project_acronym'],
+        project_id=event['project_id'],
+        core_api_client=event['core_api_client'],
+        logger=event['logger'],
+        correlation_id=event['correlation_id'],
+    )
+    project_parser.transfer_participant_csv()
 
 
 @utils.lambda_wrapper
 def participants_to_sdhs(event, context):
-    logger = event['logger']
-    correlation_id = event['correlation_id']
+    pitm = ParticipantInfoTransferManager(
+        logger=event['logger'],
+        correlation_id=event['correlation_id'],
+    )
+    pitm.process_projects()
