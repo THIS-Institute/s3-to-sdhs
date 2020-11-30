@@ -57,4 +57,5 @@ class BucketReporter:
 if __name__ == '__main__':
     reporter = BucketReporter()
     reporter.sort_live_and_on_demand()
-    reporter.print_on_demand_interviews_report()
+    # reporter.print_on_demand_interviews_report()
+    reporter.print_live_interviews_report()
