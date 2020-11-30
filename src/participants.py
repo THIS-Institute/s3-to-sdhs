@@ -27,9 +27,10 @@ from common.helpers import get_sftp_parameters
 
 
 class ProjectParser:
-    def __init__(self, project_acronym, project_id, core_api_client=None, logger=None, correlation_id=None):
+    def __init__(self, project_acronym, project_id, filename_prefix, core_api_client=None, logger=None, correlation_id=None):
         self.project_acronym = project_acronym
         self.project_id = project_id
+        self.filename_prefix = filename_prefix
         self.logger = logger
         if logger is None:
             self.logger = utils.get_logger()
@@ -46,7 +47,7 @@ class ProjectParser:
 
     def transfer_participant_csv(self):
         sdhs_params, target_folder, cnopts = get_sftp_parameters(self.project_acronym)
-        target_filename = f'{self.project_acronym}_participants_{utils.now_with_tz().strftime("%Y-%m-%d")}.csv'
+        target_filename = f'{self.filename_prefix}_participants_{utils.now_with_tz().strftime("%Y-%m-%d")}.csv'
         with pysftp.Connection(**sdhs_params, cnopts=cnopts) as sftp:
             sftp.chdir(target_folder)
             with sftp.sftp_client.open(target_filename, 'w') as csvfile:
@@ -92,6 +93,7 @@ class ParticipantInfoTransferManager:
                 payload={
                     'project_acronym': project['id'],
                     'project_id': project['project_id'],
+                    'filename_prefix': project['filename_prefix'],
                     'core_api_client': self.core_api_client,
                     'correlation_id': self.correlation_id,
                 }
@@ -103,6 +105,7 @@ def parse_project_participants(event, context):
     project_parser = ProjectParser(
         project_acronym=event['project_acronym'],
         project_id=event['project_id'],
+        filename_prefix=event['filename_prefix'],
         core_api_client=event['core_api_client'],
         logger=event['logger'],
         correlation_id=event['correlation_id'],

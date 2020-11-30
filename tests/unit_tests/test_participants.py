@@ -28,7 +28,7 @@ from thiscovery_lib.dynamodb_utilities import Dynamodb
 from thiscovery_lib.lambda_utilities import Lambda
 from src.common.constants import STATUS_TABLE, STACK_NAME
 from src.monitor import IncomingMonitor, InterviewFile
-from src.participants import ProjectParser
+import src.participants as p
 
 
 class TestParticipants(test_utils.SdhsTransferTestCase):
@@ -55,5 +55,10 @@ class TestParticipants(test_utils.SdhsTransferTestCase):
     ]
 
     def test_01_get_users_ok(self):
-        pp = ProjectParser(project_id=self.test_project_id)
+        pp = p.ProjectParser(project_id=self.test_project_id)
         self.assertCountEqual(self.expected_users, pp._get_users())
+
+    def test_02_ParticipantInfoTransferManager_init_ok(self):
+        pitm = p.ParticipantInfoTransferManager()
+        expected_projects_to_process_ids = ['7c18c259-ace6-4f48-9206-93cd15501348']
+        self.assertCountEqual(expected_projects_to_process_ids, [x.get('project_id') for x in pitm.projects_to_process])

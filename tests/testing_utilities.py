@@ -62,6 +62,7 @@ class SdhsTransferTestCase(test_tools.BaseTestCase):
             "live_interviews": "true",
             "on_demand_interviews": "true",
             "on_demand_referrer": "https://start.myinterview.com/this-institute-university-of-cambridge/unit-test-project-1",
+            "participant_data_to_sdhs": True,
         },
         "unittest-2": {
             "filename_prefix": "IGNORE-this-test-file-PSFU-05",
