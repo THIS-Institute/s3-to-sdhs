@@ -136,17 +136,17 @@ Resources:
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
         - Statement:
-          - Sid: MediaconvertCreateJob
-            Effect: Allow
-            Action:
-              - mediaconvert:CreateJob
-            Resource: '*'
-          - Sid: PassMediaConvertRole
-            Effect: Allow
-            Action:
-              - iam:GetRole
-              - iam:PassRole
-            Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
+            - Sid: MediaconvertCreateJob
+              Effect: Allow
+              Action:
+                - mediaconvert:CreateJob
+              Resource: '*'
+            - Sid: PassMediaConvertRole
+              Effect: Allow
+              Action:
+                - iam:GetRole
+                - iam:PassRole
+              Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/MediaConvert_Default_Role
       Environment:
         Variables:
           TABLE_NAME: !Ref FileTransferStatus
@@ -252,6 +252,61 @@ Resources:
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
       TableName: !Sub ${AWS::StackName}-ResearchProjects
+  ParticipantsToSdhs:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ParticipantsToSdhs
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: ParticipantsToSdhs
+      CodeUri: src
+      Handler: participants.participants_to_sdhs
+      Runtime: python3.7
+      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Timeout: !Ref EnvConfiglambdatimeoutAsString
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ResearchProjects
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ParseProjectParticipants
+      Events:
+        Timer4:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day)
+          Metadata:
+            StackeryName: ParticipantsTimer
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ResearchProjects
+          TABLE_ARN: !GetAtt ResearchProjects.Arn
+          SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
+          FUNCTION_NAME: !Ref ParseProjectParticipants
+          FUNCTION_ARN: !GetAtt ParseProjectParticipants.Arn
+  ParseProjectParticipants:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-ParseProjectParticipant
+      Description: !Sub
+        - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
+        - ResourceName: ParseProjectParticipants
+      CodeUri: src
+      Handler: participants.parse_project_participants
+      Runtime: python3.7
+      MemorySize: !Ref EnvConfiglambdamemorysizeAsString
+      Timeout: !Ref EnvConfiglambdatimeoutAsString
+      Tracing: Active
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/${EnvironmentTagName}/*
+      Environment:
+        Variables:
+          SECRETS_NAMESPACE: !Sub /${EnvironmentTagName}/
 Parameters:
   StackTagName:
     Type: String
