@@ -15,6 +15,7 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
+import csv
 import datetime
 import json
 import os
@@ -31,15 +32,26 @@ from thiscovery_lib.s3_utilities import S3Client
 import thiscovery_lib.utilities as utils
 from thiscovery_lib.core_api_utilities import CoreApiClient
 from thiscovery_lib.dynamodb_utilities import Dynamodb
+from thiscovery_lib.lambda_utilities import Lambda
 from common.constants import STACK_NAME, STATUS_TABLE, AUDIT_TABLE, PROJECTS_TABLE
 from common.mediaconvert_utilities import MediaConvertClient
-from common.helpers import parse_s3_path
+from common.helpers import parse_s3_path, get_sftp_parameters
 from monitor import IncomingMonitor
+from main import TransferManager
 
 
 class ProjectParser:
-    def __init__(self, project_id, core_api_client=None, logger=None, correlation_id=None):
-        self.project_id = project_id
+    def __init__(self, project_item, core_api_client=None, logger=None, correlation_id=None):
+        """
+
+        Args:
+            project_item: ddb item from ResearchProjects table
+            core_api_client:
+            logger:
+            correlation_id:
+        """
+        self.project_acronym = project_item['id']
+        self.project_id = project_item['project_id']
         self.logger = logger
         if logger is None:
             self.logger = utils.get_logger()
@@ -53,6 +65,25 @@ class ProjectParser:
         if self.users is None:
             self.users = self.core_api_client.list_users_by_project(project_id=self.project_id)
         return self.users
+
+    def transfer_participant_csv(self):
+        sdhs_params, target_folder, cnopts = get_sftp_parameters(self.project_acronym)
+        target_filename = f'{self.project_acronym}_participants_{utils.now_with_tz().strftime("%Y-%m-%d")}.csv'
+        with pysftp.Connection(**sdhs_params, cnopts=cnopts) as sftp:
+            sftp.chdir(target_folder)
+            with sftp.sftp_client.open(target_filename, 'w') as csvfile:
+                fieldnames = [
+                    'anon_project_specific_user_id',
+                    'first_name',
+                    'last_name',
+                    'email',
+                ]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(self.users)
+        self.logger.debug(f'Completed transfer', extra={
+            'csv_filename': target_filename,
+        })
 
 
 class ParticipantInfoTransfer:
@@ -68,11 +99,19 @@ class ParticipantInfoTransfer:
             self.ddb_client = Dynamodb(stack_name=STACK_NAME, correlation_id=correlation_id)
         self.correlation_id = correlation_id
 
+        self.lambda_client = Lambda(stack_name=STACK_NAME)
+
         self.projects_to_process = [x for x in self.ddb_client.scan(
             table_name=PROJECTS_TABLE,
             filter_attr_name="participant_data_to_sdhs",
             filter_attr_values=[True]
         ) if x["interview_task_status"] == 'active']
+
+    def process_projects(self):
+        for project in self.projects_to_process:
+            response = self.lambda_client.invoke(
+                function_name=''
+            )
 
 
 @utils.lambda_wrapper
