@@ -290,7 +290,7 @@ Resources:
   ParseProjectParticipants:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub ${AWS::StackName}-ParseProjectParticipant
+      FunctionName: !Sub ${AWS::StackName}-ParseProjectParticipants
       Description: !Sub
         - Stack ${StackTagName} Environment ${EnvironmentTagName} Function ${ResourceName}
         - ResourceName: ParseProjectParticipants
