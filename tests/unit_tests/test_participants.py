@@ -15,20 +15,15 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
-import copy
 import os
+import thiscovery_lib.utilities as utils
 import unittest
 from http import HTTPStatus
 from pprint import pprint
+from thiscovery_lib.core_api_utilities import CoreApiClient
 
-import thiscovery_lib.utilities as utils
-import tests.test_data as td
-import tests.testing_utilities as test_utils
-from thiscovery_lib.dynamodb_utilities import Dynamodb
-from thiscovery_lib.lambda_utilities import Lambda
-from src.common.constants import STATUS_TABLE, STACK_NAME
-from src.monitor import IncomingMonitor, InterviewFile
 import src.participants as p
+import tests.testing_utilities as test_utils
 
 
 class TestParticipants(test_utils.SdhsTransferTestCase):
@@ -55,10 +50,41 @@ class TestParticipants(test_utils.SdhsTransferTestCase):
     ]
 
     def test_01_get_users_ok(self):
-        pp = p.ProjectParser(project_id=self.test_project_id)
+        pp = p.ProjectParser(
+            project_acronym='PSFU-07',
+            project_id=self.test_project_id,
+            filename_prefix='PSFU-07-file'
+        )
         self.assertCountEqual(self.expected_users, pp._get_users())
 
     def test_02_ParticipantInfoTransferManager_init_ok(self):
         pitm = p.ParticipantInfoTransferManager()
         expected_projects_to_process_ids = ['7c18c259-ace6-4f48-9206-93cd15501348']
         self.assertCountEqual(expected_projects_to_process_ids, [x.get('project_id') for x in pitm.projects_to_process])
+
+    def test_03_transfer_participant_csv_ok(self):
+        project_acronym = 'unittest-1'
+        pp = p.ProjectParser(
+            project_acronym=project_acronym,
+            project_id=self.test_projects[project_acronym]['project_id'],
+            filename_prefix=self.test_projects[project_acronym]['filename_prefix']
+        )
+        result = pp.transfer_participant_csv()
+        self.assertEqual(HTTPStatus.OK, result)
+
+    def test_04_parse_project_participants_ok(self):
+        project_acronym = 'unittest-1'
+        lambda_event = {
+            'project_acronym': project_acronym,
+            'project_id': self.test_projects[project_acronym]['project_id'],
+            'filename_prefix': self.test_projects[project_acronym]['filename_prefix'],
+            'core_api_client': CoreApiClient(),
+        }
+        result = p.parse_project_participants(lambda_event, None)
+        self.assertEqual(HTTPStatus.OK, result)
+
+    @unittest.skipUnless(os.environ['TEST_ON_AWS'] == 'True', 'Invokes lambda on AWS')
+    def test_05_participants_to_sdhs_ok(self):
+        result = p.participants_to_sdhs(dict(), None)
+        pprint(result)
+

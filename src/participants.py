@@ -17,11 +17,13 @@
 #
 import csv
 import pysftp
-
 import thiscovery_lib.utilities as utils
+
+from http import HTTPStatus
 from thiscovery_lib.core_api_utilities import CoreApiClient
 from thiscovery_lib.dynamodb_utilities import Dynamodb
 from thiscovery_lib.lambda_utilities import Lambda
+
 from common.constants import STACK_NAME, PROJECTS_TABLE
 from common.helpers import get_sftp_parameters
 
@@ -46,6 +48,7 @@ class ProjectParser:
         return self.users
 
     def transfer_participant_csv(self):
+        self._get_users()
         sdhs_params, target_folder, cnopts = get_sftp_parameters(self.project_acronym)
         target_filename = f'{self.filename_prefix}_participants_{utils.now_with_tz().strftime("%Y-%m-%d")}.csv'
         with pysftp.Connection(**sdhs_params, cnopts=cnopts) as sftp:
@@ -57,12 +60,13 @@ class ProjectParser:
                     'last_name',
                     'email',
                 ]
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
                 writer.writeheader()
                 writer.writerows(self.users)
         self.logger.debug(f'Completed transfer', extra={
             'csv_filename': target_filename,
         })
+        return HTTPStatus.OK
 
 
 class ParticipantInfoTransferManager:
@@ -87,6 +91,7 @@ class ParticipantInfoTransferManager:
         ) if x["interview_task_status"] == 'active']
 
     def process_projects(self):
+        results = list()
         for project in self.projects_to_process:
             response = self.lambda_client.invoke(
                 function_name='ParseProjectParticipants',
@@ -94,10 +99,12 @@ class ParticipantInfoTransferManager:
                     'project_acronym': project['id'],
                     'project_id': project['project_id'],
                     'filename_prefix': project['filename_prefix'],
-                    'core_api_client': self.core_api_client,
                     'correlation_id': self.correlation_id,
-                }
+                },
+                invocation_type='Event'
             )
+            results.append(response)
+        return results
 
 
 @utils.lambda_wrapper
@@ -106,11 +113,11 @@ def parse_project_participants(event, context):
         project_acronym=event['project_acronym'],
         project_id=event['project_id'],
         filename_prefix=event['filename_prefix'],
-        core_api_client=event['core_api_client'],
-        logger=event['logger'],
+        core_api_client=event.get('core_api_client'),
+        logger=event.get('logger'),
         correlation_id=event['correlation_id'],
     )
-    project_parser.transfer_participant_csv()
+    return project_parser.transfer_participant_csv()
 
 
 @utils.lambda_wrapper
@@ -119,4 +126,4 @@ def participants_to_sdhs(event, context):
         logger=event['logger'],
         correlation_id=event['correlation_id'],
     )
-    pitm.process_projects()
+    return pitm.process_projects()
