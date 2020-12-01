@@ -86,5 +86,6 @@ class TestParticipants(test_utils.SdhsTransferTestCase):
     @unittest.skipUnless(os.environ['TEST_ON_AWS'] == 'True', 'Invokes lambda on AWS')
     def test_05_participants_to_sdhs_ok(self):
         result = p.participants_to_sdhs(dict(), None)
-        pprint(result)
+        self.assertEqual(1, len(result))
+        self.assertEqual(HTTPStatus.ACCEPTED, result[0]['StatusCode'])
 
