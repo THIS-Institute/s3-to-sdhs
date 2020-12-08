@@ -1,0 +1,21 @@
+\tikzumlset{fill object=black!10, fill call=black!10}
+\begin{figure}[h]
+\begin{center}
+\begin{tikzpicture}
+\begin{umlseqdiag}
+    \umlbasicobject{s3-to-sdhs}
+    \umlbasicobject{thiscovery-core}
+    \umlbasicobject{thiscovery-interviews}
+    \umlbasicobject{SDHS}
+    \begin{umlcallself}[op=get active projects]{s3-to-sdhs}\end{umlcallself}
+    \begin{umlcall}[op=project\_id, return=project users, padding=3]{s3-to-sdhs}{thiscovery-core}\end{umlcall}
+    \begin{umlfragment}[type=v2]
+        \begin{umlcall}[dt=10, op=get future appointments, return=appointment info, padding=3]{s3-to-sdhs}{thiscovery-interviews}\end{umlcall}
+        \begin{umlcallself}[op=store appointment info per user]{s3-to-sdhs}\end{umlcallself}
+    \end{umlfragment}
+    \begin{umlcall}[op=upload csv, dt=8]{s3-to-sdhs}{SDHS}\end{umlcall}    
+\end{umlseqdiag}
+\end{tikzpicture}
+\caption{Sequence diagram of the thiscovery participant info transfer service.}
+\end{center}
+\end{figure}
