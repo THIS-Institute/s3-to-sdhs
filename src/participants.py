@@ -51,21 +51,26 @@ class ProjectParser:
         self._get_users()
         sdhs_params, target_folder, cnopts = get_sftp_parameters(self.project_acronym)
         target_filename = f'{self.filename_prefix}_participants_{utils.now_with_tz().strftime("%Y-%m-%d")}.csv'
-        with pysftp.Connection(**sdhs_params, cnopts=cnopts) as sftp:
-            sftp.chdir(target_folder)
-            with sftp.sftp_client.open(target_filename, 'w') as csvfile:
-                fieldnames = [
-                    'anon_project_specific_user_id',
-                    'first_name',
-                    'last_name',
-                    'email',
-                ]
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
-                writer.writeheader()
-                writer.writerows(self.users)
-        self.logger.debug(f'Completed transfer', extra={
-            'csv_filename': target_filename,
-        })
+        if self.users:
+            with pysftp.Connection(**sdhs_params, cnopts=cnopts) as sftp:
+                sftp.chdir(target_folder)
+                with sftp.sftp_client.open(target_filename, 'w') as csvfile:
+                    fieldnames = [
+                        'anon_project_specific_user_id',
+                        'first_name',
+                        'last_name',
+                        'email',
+                    ]
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
+                    writer.writeheader()
+                    writer.writerows(self.users)
+            self.logger.debug(f'Completed transfer', extra={
+                'csv_filename': target_filename,
+            })
+        else:
+            self.logger.info(f'{self.project_acronym} does not have any participants; skipped', extra={
+                'csv_filename': target_filename,
+            })
         return HTTPStatus.OK
 
 
