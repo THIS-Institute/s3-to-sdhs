@@ -116,6 +116,7 @@ Resources:
           Type: Schedule
           Properties:
             Schedule: cron(30 8 ? * 2 *)
+            Input: '{"brew_coffee": "true"}'
           Metadata:
             StackeryName: TriggerRaiseError
   MockIncomingBucket:
