@@ -112,6 +112,13 @@ Resources:
             Schedule: rate(20 minutes)
           Metadata:
             StackeryName: MonitorIncomingBucketTimer
+        Timer5:
+          Type: Schedule
+          Properties:
+            Schedule: cron(30 8 ? * 2 *)
+            Input: '{"brew_coffee": "true"}'
+          Metadata:
+            StackeryName: TriggerRaiseError
   MockIncomingBucket:
     Type: AWS::S3::Bucket
     Properties:

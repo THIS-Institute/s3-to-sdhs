@@ -37,7 +37,7 @@ class BucketReporter:
             print(
                 f"\t{i['Key']}\n"
                 f"\t{i['LastModified']}\n"
-                f"\t{i['Metadata']['interviewer']}\n"
+                f"\t{i['Metadata'].get('interviewer')}\n"
                 f"\t{i['Metadata']['email']}\n"
                 f"\n"
             )

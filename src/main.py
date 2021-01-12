@@ -190,6 +190,13 @@ def monitor_incoming_bucket(event, context):
 def process_incoming_files(event, context):
     logger = event['logger']
     correlation_id = event['correlation_id']
+    if 'brew_coffee' in event:
+        return utils.log_exception_and_return_edited_api_response(
+            exception='Coffee is not available',
+            status_code=HTTPStatus.IM_A_TEAPOT,
+            logger_instance=logger,
+            correlation_id=correlation_id,
+        )
     processor = ProcessIncoming(logger=logger, correlation_id=correlation_id)
     return processor.main()
 
