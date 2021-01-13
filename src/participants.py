@@ -59,7 +59,7 @@ class ProjectParser:
         self.appointments_by_user_email = None
 
     def _get_appointments(self):
-        if self.appointments_by_user_email is None:
+        if (self.appointments_by_user_email is None) and self.appointment_type_ids:
             interviews_client = InterviewsApiClient(correlation_id=self.correlation_id)
             appointments = interviews_client.get_appointments_by_type_ids(appointment_type_ids=self.appointment_type_ids)
             self.appointments_by_user_email = {x['participant_email']: x for x in appointments}
@@ -129,8 +129,11 @@ class ProjectParser:
                     ]
                     writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
                     writer.writeheader()
-                    for user in self.users:
-                        writer.writerow(self._parse_user(user))
+                    if self.appointments_by_user_email:
+                        for user in self.users:
+                            writer.writerow(self._parse_user(user))
+                    else:
+                        writer.writerows(self.users)
             self.logger.debug(f'Completed transfer', extra={
                 'csv_filename': target_filename,
             })
