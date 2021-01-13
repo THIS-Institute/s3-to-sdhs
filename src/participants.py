@@ -31,7 +31,7 @@ from common.helpers import get_sftp_parameters
 
 
 class ProjectParser:
-    def __init__(self, project_acronym, project_id, filename_prefix, appointment_type_ids, core_api_client=None, logger=None, correlation_id=None):
+    def __init__(self, project_acronym, project_id, filename_prefix, appointment_type_ids=None, core_api_client=None, logger=None, correlation_id=None):
         """
         Args:
             project_acronym (str): CORONET, COPD, etc
@@ -47,6 +47,7 @@ class ProjectParser:
         self.filename_prefix = filename_prefix
         self.appointment_type_ids = appointment_type_ids
         self.logger = logger
+        self.correlation_id = correlation_id
         if logger is None:
             self.logger = utils.get_logger()
         self.core_api_client = core_api_client
@@ -59,7 +60,7 @@ class ProjectParser:
 
     def _get_appointments(self):
         if self.appointments_by_user_email is None:
-            interviews_client = InterviewsApiClient(correlation_id=correlation_id)
+            interviews_client = InterviewsApiClient(correlation_id=self.correlation_id)
             appointments = interviews_client.get_appointments_by_type_ids(appointment_type_ids=self.appointment_type_ids)
             self.appointments_by_user_email = {x['participant_email']: x for x in appointments}
             self.appointments_by_user_id = {
