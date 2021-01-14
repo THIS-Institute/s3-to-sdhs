@@ -16,6 +16,7 @@
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
 import csv
+import json
 import pysftp
 import thiscovery_lib.utilities as utils
 
@@ -55,17 +56,22 @@ class ProjectParser:
             self.core_api_client = CoreApiClient(correlation_id=correlation_id)
 
         self.users = None
-        self.appointments_by_user_id = None
+        self.appointments_by_user_id = dict()
         self.appointments_by_user_email = None
 
     def _get_appointments(self):
         if (self.appointments_by_user_email is None) and self.appointment_type_ids:
             interviews_client = InterviewsApiClient(correlation_id=self.correlation_id)
-            appointments = interviews_client.get_appointments_by_type_ids(appointment_type_ids=self.appointment_type_ids)
+            response = interviews_client.get_appointments_by_type_ids(appointment_type_ids=self.appointment_type_ids)
+            appointments = json.loads(response['body'])['appointments']
             self.appointments_by_user_email = {x['participant_email']: x for x in appointments}
-            self.appointments_by_user_id = {
-                x['anon_project_specific_user_id']: x for x in appointments if x['anon_project_specific_user_id'] is not None
-            }
+            try:
+                self.appointments_by_user_id = {
+                    x['anon_project_specific_user_id']: x for x in appointments if x['anon_project_specific_user_id'] is not None
+                }
+            except KeyError:
+                self.logger.debug('One or more anon_project_specific_user_id missing from appointment dataset; '
+                                  'appointments_by_user_id will not be populated')
         return self.appointments_by_user_email, self.appointments_by_user_id
 
     def _get_users(self):
@@ -88,7 +94,8 @@ class ProjectParser:
             return parser.parse(appointment_dict['acuity_info']['datetime']).strftime('%Y-%m-%d %H:%M')
 
         user_appointments = set()
-        for d, k in [(self.appointments_by_user_email, 'email'), (self.appointments_by_user_id, 'anon_project_specific_user_id')]:
+        for d, k in [(self.appointments_by_user_email, user['email']),
+                     (self.appointments_by_user_id, user['anon_project_specific_user_id'])]:
             try:
                 user_appointments.add(d[k])
             except KeyError:
