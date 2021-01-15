@@ -67,7 +67,8 @@ class TestParticipants(test_utils.SdhsTransferTestCase):
         pp = p.ProjectParser(
             project_acronym=project_acronym,
             project_id=self.test_projects[project_acronym]['project_id'],
-            filename_prefix=self.test_projects[project_acronym]['filename_prefix']
+            filename_prefix=self.test_projects[project_acronym]['filename_prefix'],
+            appointment_type_ids=['17271544'],
         )
         result = pp.transfer_participant_csv()
         self.assertEqual(HTTPStatus.OK, result)
@@ -78,6 +79,7 @@ class TestParticipants(test_utils.SdhsTransferTestCase):
             'project_acronym': project_acronym,
             'project_id': self.test_projects[project_acronym]['project_id'],
             'filename_prefix': self.test_projects[project_acronym]['filename_prefix'],
+            'appointment_type_ids': ['17271544'],
             'core_api_client': CoreApiClient(),
         }
         result = p.parse_project_participants(lambda_event, None)

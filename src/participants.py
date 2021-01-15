@@ -16,24 +16,44 @@
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
 import csv
+import json
 import pysftp
 import thiscovery_lib.utilities as utils
 
+from dateutil import parser
 from http import HTTPStatus
 from thiscovery_lib.core_api_utilities import CoreApiClient
 from thiscovery_lib.dynamodb_utilities import Dynamodb
+from thiscovery_lib.interviews_api_utilities import InterviewsApiClient
 from thiscovery_lib.lambda_utilities import Lambda
 
 from common.constants import STACK_NAME, PROJECTS_TABLE
 from common.helpers import get_sftp_parameters
 
 
+APPOINTMENT_TYPE_KEY = 'appointment_type'
+APPOINTMENT_DATETIME_KEY = 'appointment_datetime'
+INTERVIEWER_KEY = 'interviewer'
+
+
 class ProjectParser:
-    def __init__(self, project_acronym, project_id, filename_prefix, core_api_client=None, logger=None, correlation_id=None):
+    def __init__(self, project_acronym, project_id, filename_prefix, appointment_type_ids=None, core_api_client=None, logger=None, correlation_id=None):
+        """
+        Args:
+            project_acronym (str): CORONET, COPD, etc
+            project_id (str): project id in thiscovery db
+            filename_prefix (str):
+            appointment_type_ids (list): ids of acuity appointment types associated with project
+            core_api_client:
+            logger:
+            correlation_id:
+        """
         self.project_acronym = project_acronym
         self.project_id = project_id
         self.filename_prefix = filename_prefix
+        self.appointment_type_ids = appointment_type_ids
         self.logger = logger
+        self.correlation_id = correlation_id
         if logger is None:
             self.logger = utils.get_logger()
         self.core_api_client = core_api_client
@@ -41,14 +61,74 @@ class ProjectParser:
             self.core_api_client = CoreApiClient(correlation_id=correlation_id)
 
         self.users = None
+        self.appointments_by_user_id = dict()
+        self.appointments_by_user_email = None
+
+    def _get_appointments(self):
+        if (self.appointments_by_user_email is None) and self.appointment_type_ids:
+            interviews_client = InterviewsApiClient(correlation_id=self.correlation_id)
+            response = interviews_client.get_appointments_by_type_ids(appointment_type_ids=self.appointment_type_ids)
+            appointments = json.loads(response['body'])['appointments']
+            self.appointments_by_user_email = {x['participant_email']: x for x in appointments}
+            try:
+                self.appointments_by_user_id = {
+                    x['anon_project_specific_user_id']: x for x in appointments if x['anon_project_specific_user_id'] is not None
+                }
+            except KeyError:
+                self.logger.debug('One or more anon_project_specific_user_id missing from appointment dataset; '
+                                  'appointments_by_user_id will not be populated')
+        return self.appointments_by_user_email, self.appointments_by_user_id
 
     def _get_users(self):
         if self.users is None:
             self.users = self.core_api_client.list_users_by_project(project_id=self.project_id)
         return self.users
 
+    def _parse_user(self, user):
+        """
+        Args:
+            user (dict):
+
+        Returns:
+            Dict containing user pid and interview appointment info
+        """
+        def get_appointment_name(appointment_dict):
+            return appointment_dict['appointment_type']['name']
+
+        def get_appontment_datetime(appointment_dict):
+            return parser.parse(appointment_dict['acuity_info']['datetime']).strftime('%Y-%m-%d %H:%M')
+
+        user_appointments = set()
+        for d, k in [(self.appointments_by_user_email, user['email']),
+                     (self.appointments_by_user_id, user['anon_project_specific_user_id'])]:
+            try:
+                user_appointments.add(json.dumps(d[k]))
+            except KeyError:
+                pass
+
+        appointment_type = str()
+        appointment_datetime = str()
+        interviewer = str()
+        if len(user_appointments) == 1:
+            a = json.loads(user_appointments.pop())
+            appointment_type = get_appointment_name(a)
+            appointment_datetime = get_appontment_datetime(a)
+            interviewer = a['calendar_name']
+        elif len(user_appointments) > 1:
+            appointment_type = '; '.join([get_appointment_name(json.loads(x)) for x in user_appointments])
+            appointment_datetime = '; '.join([get_appontment_datetime(json.loads(x)) for x in user_appointments])
+            interviewer = '; '.join([x['calendar_name'] for x in user_appointments])
+
+        return {
+            APPOINTMENT_TYPE_KEY: appointment_type,
+            APPOINTMENT_DATETIME_KEY: appointment_datetime,
+            INTERVIEWER_KEY: interviewer,
+            **user
+        }
+
     def transfer_participant_csv(self):
         self._get_users()
+        self._get_appointments()
         sdhs_params, target_folder, cnopts = get_sftp_parameters(self.project_acronym)
         target_filename = f'{self.filename_prefix}_participants_{utils.now_with_tz().strftime("%Y-%m-%d")}.csv'
         if self.users:
@@ -60,10 +140,17 @@ class ProjectParser:
                         'first_name',
                         'last_name',
                         'email',
+                        APPOINTMENT_TYPE_KEY,
+                        APPOINTMENT_DATETIME_KEY,
+                        INTERVIEWER_KEY,
                     ]
                     writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
                     writer.writeheader()
-                    writer.writerows(self.users)
+                    if self.appointments_by_user_email:
+                        for user in self.users:
+                            writer.writerow(self._parse_user(user))
+                    else:
+                        writer.writerows(self.users)
             self.logger.debug(f'Completed transfer', extra={
                 'csv_filename': target_filename,
             })
@@ -104,6 +191,7 @@ class ParticipantInfoTransferManager:
                     'project_acronym': project['id'],
                     'project_id': project['project_id'],
                     'filename_prefix': project['filename_prefix'],
+                    'appointment_type_ids': project.get('appointment_type_ids'),
                     'correlation_id': self.correlation_id,
                 },
                 invocation_type='Event'
@@ -114,10 +202,14 @@ class ParticipantInfoTransferManager:
 
 @utils.lambda_wrapper
 def parse_project_participants(event, context):
+    """
+    Called by participants_to_sdhs for each active project
+    """
     project_parser = ProjectParser(
         project_acronym=event['project_acronym'],
         project_id=event['project_id'],
         filename_prefix=event['filename_prefix'],
+        appointment_type_ids=event.get('appointment_type_ids'),
         core_api_client=event.get('core_api_client'),
         logger=event.get('logger'),
         correlation_id=event['correlation_id'],
@@ -127,6 +219,9 @@ def parse_project_participants(event, context):
 
 @utils.lambda_wrapper
 def participants_to_sdhs(event, context):
+    """
+    Service entry point
+    """
     pitm = ParticipantInfoTransferManager(
         logger=event['logger'],
         correlation_id=event['correlation_id'],
