@@ -31,6 +31,11 @@ from common.constants import STACK_NAME, PROJECTS_TABLE
 from common.helpers import get_sftp_parameters
 
 
+APPOINTMENT_TYPE_KEY = 'appointment_type'
+APPOINTMENT_DATETIME_KEY = 'appointment_datetime'
+INTERVIEWER_KEY = 'interviewer'
+
+
 class ProjectParser:
     def __init__(self, project_acronym, project_id, filename_prefix, appointment_type_ids=None, core_api_client=None, logger=None, correlation_id=None):
         """
@@ -97,23 +102,27 @@ class ProjectParser:
         for d, k in [(self.appointments_by_user_email, user['email']),
                      (self.appointments_by_user_id, user['anon_project_specific_user_id'])]:
             try:
-                user_appointments.add(d[k])
+                user_appointments.add(json.dumps(d[k]))
             except KeyError:
                 pass
 
         appointment_type = str()
         appointment_datetime = str()
+        interviewer = str()
         if len(user_appointments) == 1:
-            a = user_appointments.pop()
+            a = json.loads(user_appointments.pop())
             appointment_type = get_appointment_name(a)
             appointment_datetime = get_appontment_datetime(a)
+            interviewer = a['calendar_name']
         elif len(user_appointments) > 1:
-            appointment_type = '; '.join([get_appointment_name(x) for x in user_appointments])
-            appointment_datetime = '; '.join([get_appontment_datetime(x) for x in user_appointments])
+            appointment_type = '; '.join([get_appointment_name(json.loads(x)) for x in user_appointments])
+            appointment_datetime = '; '.join([get_appontment_datetime(json.loads(x)) for x in user_appointments])
+            interviewer = '; '.join([x['calendar_name'] for x in user_appointments])
 
         return {
-            'appointment_type': appointment_type,
-            'appointment_datetime': appointment_datetime,
+            APPOINTMENT_TYPE_KEY: appointment_type,
+            APPOINTMENT_DATETIME_KEY: appointment_datetime,
+            INTERVIEWER_KEY: interviewer,
             **user
         }
 
@@ -131,8 +140,9 @@ class ProjectParser:
                         'first_name',
                         'last_name',
                         'email',
-                        'appointment_type',
-                        'appointment_datetime',
+                        APPOINTMENT_TYPE_KEY,
+                        APPOINTMENT_DATETIME_KEY,
+                        INTERVIEWER_KEY,
                     ]
                     writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
                     writer.writeheader()
