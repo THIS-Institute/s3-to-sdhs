@@ -20,7 +20,6 @@ import json
 import pysftp
 import thiscovery_lib.utilities as utils
 
-from dateutil import parser
 from http import HTTPStatus
 from thiscovery_lib.core_api_utilities import CoreApiClient
 from thiscovery_lib.dynamodb_utilities import Dynamodb
@@ -28,7 +27,7 @@ from thiscovery_lib.interviews_api_utilities import InterviewsApiClient
 from thiscovery_lib.lambda_utilities import Lambda
 
 from common.constants import STACK_NAME, PROJECTS_TABLE
-from common.helpers import get_sftp_parameters
+from common.helpers import get_sftp_parameters, get_appointment_datetime
 
 
 APPOINTMENT_TYPE_KEY = 'appointment_type'
@@ -95,9 +94,6 @@ class ProjectParser:
         def get_appointment_name(appointment_dict):
             return appointment_dict['appointment_type']['name']
 
-        def get_appontment_datetime(appointment_dict):
-            return parser.parse(appointment_dict['acuity_info']['datetime']).strftime('%Y-%m-%d %H:%M')
-
         user_appointments = set()
         for d, k in [(self.appointments_by_user_email, user['email']),
                      (self.appointments_by_user_id, user['anon_project_specific_user_id'])]:
@@ -112,11 +108,11 @@ class ProjectParser:
         if len(user_appointments) == 1:
             a = json.loads(user_appointments.pop())
             appointment_type = get_appointment_name(a)
-            appointment_datetime = get_appontment_datetime(a)
+            appointment_datetime = get_appointment_datetime(a)
             interviewer = a['calendar_name']
         elif len(user_appointments) > 1:
             appointment_type = '; '.join([get_appointment_name(json.loads(x)) for x in user_appointments])
-            appointment_datetime = '; '.join([get_appontment_datetime(json.loads(x)) for x in user_appointments])
+            appointment_datetime = '; '.join([get_appointment_datetime(json.loads(x)) for x in user_appointments])
             interviewer = '; '.join([x['calendar_name'] for x in user_appointments])
 
         return {
