@@ -27,6 +27,7 @@ import tests.test_data as td
 import tests.testing_utilities as test_utils
 from src.common.constants import STACK_NAME, STATUS_TABLE
 from src.main import ProcessIncoming, IncomingMonitor
+from src.monitor import InterviewFile
 
 
 class TestProcessIncoming(test_utils.SdhsTransferTestCase):
@@ -43,9 +44,11 @@ class TestProcessIncoming(test_utils.SdhsTransferTestCase):
             # 'bf67ce1c-757a-46d6-bed6-13d50e1ff0b5/video/2526a433-58d7-4368-921e-7d85cb042c69.mp4',
         ]
         for k in keys:
-            v = td.test_s3_files[k]
-            head = copy.deepcopy(v['head'])
-            self.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
+            file = InterviewFile(
+                s3_bucket_name=f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket',
+                s3_path=k,
+            )
+            file.add_to_status_table()
         result = self.process_incoming.main()
         for media_convert_result, ddb_result in result:
             self.assertEqual(

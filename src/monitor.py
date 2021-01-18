@@ -36,6 +36,9 @@ class InterviewFile:
         self.s3_path = s3_path
         self.correlation_id = correlation_id
 
+        self.ddb_client = ddb_client
+        if ddb_client is None:
+            self.ddb_client = Dynamodb(stack_name=STACK_NAME, correlation_id=correlation_id)
         self.active_projects = active_projects
         if active_projects is None:
             self.active_projects = self.ddb_client.scan(
@@ -49,9 +52,6 @@ class InterviewFile:
         self.core_api_client = core_api_client
         if core_api_client is None:
             self.core_api_client = CoreApiClient(correlation_id=correlation_id)
-        self.ddb_client = ddb_client
-        if ddb_client is None:
-            self.ddb_client = Dynamodb(stack_name=STACK_NAME, correlation_id=correlation_id)
         self.s3_client = s3_client
         if s3_client is None:
             self.s3_client = S3Client()

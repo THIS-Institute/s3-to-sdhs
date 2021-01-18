@@ -26,6 +26,7 @@ import tests.testing_utilities as test_utils
 from thiscovery_lib.dynamodb_utilities import Dynamodb
 from thiscovery_lib.lambda_utilities import Lambda
 from src.common.constants import STATUS_TABLE, STACK_NAME
+from src.common.helpers import get_sftp_parameters
 from src.main import TransferManager
 
 
@@ -58,7 +59,7 @@ class TestTransferManager(test_utils.SdhsTransferTestCase):
         )
 
     def test_get_sftp_parameters(self):
-        sdhs_params, target_folder, cnopts = self.transfer_manager.get_sftp_parameters('unittest-1')
+        sdhs_params, target_folder, cnopts = get_sftp_parameters('unittest-1')
         self.assertEqual('ftpuser', target_folder)
         self.assertEqual('ftpuser', sdhs_params['username'])
         self.assertCountEqual(['username', 'password', 'host', 'port'], sdhs_params.keys())

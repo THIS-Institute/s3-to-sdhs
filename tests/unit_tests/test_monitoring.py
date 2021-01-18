@@ -195,5 +195,9 @@ class TestMonitoring(test_utils.SdhsTransferTestCase):
         response = lambda_client.invoke(
             function_name='MonitorIncomingBucket'
         )
+        try:
+            self.assertCountEqual(self.test_files_keys, response['Payload'])
+        except AssertionError:
+            pprint(response['Payload'])
+            raise
         self.assertNotIn('FunctionError', response.keys())
-        self.assertCountEqual(self.test_files_keys, response['Payload'])

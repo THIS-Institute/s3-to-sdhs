@@ -27,7 +27,7 @@ import tests.test_data as td
 from local.dev_config import TEST_ON_AWS, DELETE_TEST_DATA
 from thiscovery_lib.dynamodb_utilities import Dynamodb
 from src.main import PROJECTS_TABLE, STATUS_TABLE, STACK_NAME
-from src.monitor import IncomingMonitor
+from src.monitor import IncomingMonitor, InterviewFile
 
 
 class SdhsTransferTestCase(test_tools.BaseTestCase):
@@ -131,8 +131,9 @@ class SdhsTransferTestCase(test_tools.BaseTestCase):
 
     @classmethod
     def populate_status_table(cls):
-        cls.monitor = IncomingMonitor(utils.get_logger())
         for k in cls.test_keys:
-            v = td.test_s3_files[k]
-            head = copy.deepcopy(v['head'])
-            cls.monitor.add_new_file_to_status_table(f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket', k, head)
+            file = InterviewFile(
+                s3_bucket_name=f'{STACK_NAME}-{utils.get_environment_name()}-mockincomingbucket',
+                s3_path=k
+            )
+            file.add_to_status_table()
