@@ -20,6 +20,11 @@ import paramiko
 import pysftp
 import thiscovery_lib.utilities as utils
 from base64 import decodebytes
+from dateutil import parser
+
+
+def get_appointment_datetime(appointment_dict, output_format='%Y-%m-%d %H:%M'):
+    return parser.parse(appointment_dict['acuity_info']['datetime']).strftime(output_format)
 
 
 def get_sftp_parameters(project_acronym, correlation_id=None):

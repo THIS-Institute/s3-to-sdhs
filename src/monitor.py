@@ -15,18 +15,20 @@
 #   A copy of the GNU Affero General Public License is available in the
 #   docs folder of this project.  It is also available www.gnu.org/licenses/
 #
+import json
 import os
 import traceback
 
 from http import HTTPStatus
 from pprint import pprint
+from thiscovery_lib.interviews_api_utilities import InterviewsApiClient
 from thiscovery_lib.s3_utilities import S3Client
 
 import thiscovery_lib.utilities as utils
 from thiscovery_lib.core_api_utilities import CoreApiClient
 from thiscovery_lib.dynamodb_utilities import Dynamodb
 from common.constants import STACK_NAME, STATUS_TABLE, AUDIT_TABLE, PROJECTS_TABLE
-from common.helpers import parse_s3_path
+from common.helpers import parse_s3_path, get_appointment_datetime
 
 
 class InterviewFile:
@@ -58,6 +60,7 @@ class InterviewFile:
 
         self.head = self.s3_client.head_object(s3_bucket_name, s3_path)
         self.user_projects = None
+        self.participant_email = None
 
     def _get_anon_project_specific_user_id(self, user_id, project_id):
         self.user_projects = self.core_api_client.get_userprojects(user_id=user_id)
@@ -92,6 +95,16 @@ class InterviewFile:
         return project_acronym, project_prefix, project_id, anon_project_specific_user_id, target_basename
 
     def _parse_live_interview_metadata(self, metadata, user_id, s3_path):
+
+        def get_appointment(appointment_type_ids, participant_email, correlation_id=None):
+            if appointment_type_ids:
+                interviews_client = InterviewsApiClient(correlation_id=correlation_id)
+                response = interviews_client.get_appointments_by_type_ids(appointment_type_ids=appointment_type_ids)
+                appointments = json.loads(response['body'])['appointments']
+                for a in appointments:
+                    if a['participant_email'] == participant_email:
+                        return get_appointment_datetime(appointment_dict=a, output_format='%Y-%m-%d-%H%M')
+
         interview_type = 'INT-L'
         interviewer = metadata['interviewer']
         if len(self.active_projects) == 1:
@@ -156,6 +169,13 @@ class InterviewFile:
             project_id=project_id,
         )
         target_basename = f'{project_prefix}_{interview_type}_{interviewer_initials}_{anon_project_specific_user_id}'
+        appointment_datetime = get_appointment(
+            appointment_type_ids=project.get('type_ids'),
+            participant_email=self.participant_email,
+            correlation_id=self.correlation_id,
+        )
+        if appointment_datetime:
+            target_basename += f'_{appointment_datetime}'
         return project_acronym, project_prefix, project_id, anon_project_specific_user_id, target_basename
 
     def add_to_status_table(self):
@@ -165,7 +185,8 @@ class InterviewFile:
         self.logger.debug('Path of S3 file', extra={'s3_path': self.s3_path, 's3_bucket_name': self.s3_bucket_name})
         s3_filename, interview_dir, file_type = parse_s3_path(self.s3_path)
         metadata = self.head['Metadata']
-        user_id = self.core_api_client.get_user_id_by_email(email=metadata['email'])
+        self.participant_email = metadata['email']
+        user_id = self.core_api_client.get_user_id_by_email(email=self.participant_email)
         referrer_url = metadata.get('referrer')
 
         if referrer_url:  # on-demand interview
